@@ -5,29 +5,34 @@ import 'home.dart';
 
 AuthService authService = AuthService();
 
-class LoginPage extends StatefulWidget { // ✅ Changed to StatefulWidget
+class LoginPage extends StatefulWidget {
+  // ✅ Changed to StatefulWidget
   const LoginPage({super.key});
 
   @override
   State<LoginPage> createState() => _LoginPageState(); // ✅
 }
 
-class _LoginPageState extends State<LoginPage> { // ✅
+class _LoginPageState extends State<LoginPage> {
+  // ✅
   final TextEditingController emailController = TextEditingController(); // ✅
   final TextEditingController passwordController = TextEditingController(); // ✅
 
-  void _login() async { // ✅
+  void _login() async {
+    // ✅
     String email = emailController.text.trim(); // ✅
     String password = passwordController.text.trim(); // ✅
 
     try {
       await authService.signIn(email, password); // ✅
-      Navigator.pushReplacement( // ✅
+      Navigator.pushReplacement(
+        // ✅
         context,
         MaterialPageRoute(builder: (context) => const HomePage()), // ✅
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar( // ✅
+      ScaffoldMessenger.of(context).showSnackBar(
+        // ✅
         SnackBar(content: Text("Login failed: $e")), // ✅
       );
     }
@@ -37,92 +42,106 @@ class _LoginPageState extends State<LoginPage> { // ✅
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Color.fromRGBO(244, 242, 230, 1),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Image.asset(
-                'assets/logo.png',
-                height: 100,
-              ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: MediaQuery.of(context).size.height - kToolbarHeight,
             ),
-            const SizedBox(height: 20),
-            const Text(
-              'Welcome Back',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'GT Ultra',
-                color: Colors.black,
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Log into your account',
-              style: TextStyle(
-                fontSize: 14,
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.bold,
-                color: Colors.black54,
-              ),
-            ),
-            const SizedBox(height: 20),
-            buildTextField('Email', controller: emailController), // ✅
-            const SizedBox(height: 10),
-            buildTextField('Password', obscureText: true, controller: passwordController), // ✅
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: () {}, //define later
-                child: const Text(
-                  'Forgot Password?',
-                  style: TextStyle(color: Colors.black54),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            buildPrimaryButton('Login', _login), // ✅
-            const SizedBox(height: 20),
-            Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+            child: IntrinsicHeight(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    "New to Catchafire? ",
-                    style: TextStyle(fontFamily: "GT Ultra", fontSize: 12),
+                  const SizedBox(height: 60),
+                  Center(
+                    child: Image.asset(
+                      'assets/logo.png',
+                      height: 100,
+                    ),
                   ),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const SignUpPage(),
-                        ),
-                      );
-                    },
-                    child: const Text(
-                      "Sign up",
-                      style: TextStyle(
-                        fontFamily: "GT Ultra",
-                        fontSize: 12,
-                        color: Colors.blue,
-                        fontWeight: FontWeight.bold,
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Welcome Back',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'GT Ultra',
+                      color: Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Log into your account',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black54,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  buildTextField('Email', controller: emailController),
+                  const SizedBox(height: 10),
+                  buildTextField('Password',
+                      obscureText: true, controller: passwordController),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {}, // define later
+                      child: const Text(
+                        'Forgot Password?',
+                        style: TextStyle(color: Colors.black54),
                       ),
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  buildPrimaryButton('Login', _login),
+                  const Spacer(),
+                  Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          "New to Catchafire? ",
+                          style:
+                              TextStyle(fontFamily: "GT Ultra", fontSize: 12),
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const SignUpPage(),
+                              ),
+                            );
+                          },
+                          child: const Text(
+                            "Sign up",
+                            style: TextStyle(
+                              fontFamily: "GT Ultra",
+                              fontSize: 12,
+                              color: Colors.blue,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget buildTextField(String hint, {bool obscureText = false, TextEditingController? controller}) { // ✅
+  Widget buildTextField(String hint,
+      {bool obscureText = false, TextEditingController? controller}) {
+    // ✅
     return TextField(
       controller: controller, // ✅
       obscureText: obscureText,

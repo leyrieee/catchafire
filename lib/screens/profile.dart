@@ -54,9 +54,7 @@ class _ProfilePageState extends State<ProfilePage> {
         .get();
 
     setState(() {
-      userEvents = querySnapshot.docs
-          .map((doc) => doc.data() as Map<String, dynamic>)
-          .toList();
+      userEvents = querySnapshot.docs.map((doc) => doc.data()).toList();
     });
   }
 
@@ -222,7 +220,8 @@ class _ProfilePageState extends State<ProfilePage> {
             },
             itemBuilder: (context) => [
               const PopupMenuItem(value: 'logout', child: Text('Log Out')),
-              const PopupMenuItem(value: 'delete', child: Text('Delete Account')),
+              const PopupMenuItem(
+                  value: 'delete', child: Text('Delete Account')),
             ],
           ),
         ],
@@ -345,8 +344,7 @@ class _ProfilePageState extends State<ProfilePage> {
         ? (event['date'] as Timestamp).toDate()
         : DateTime.now();
 
-    final formattedDate =
-        '${date.day} ${_monthName(date.month)}, ${date.year}';
+    final formattedDate = '${date.day} ${_monthName(date.month)}, ${date.year}';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),

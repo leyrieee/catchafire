@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 import 'onboarding_screen.dart';
+import 'home.dart';
+import 'login.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -20,7 +25,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller = AnimationController(
       vsync: this,
-      duration: Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 1000),
     );
 
     _opacityAnimation = Tween<double>(begin: 0, end: 1).animate(
@@ -33,23 +38,45 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller.forward();
 
-    Future.delayed(Duration(seconds: 4), () {
-      if (mounted) {
-        Navigator.pushReplacement(
-            context,
-            PageRouteBuilder(
-                pageBuilder: (context, animation, secondaryAnimation) =>
-                    OnboardingScreen(),
-                transitionsBuilder:
-                    (context, animation, secondaryAnimation, child) {
-                  return FadeTransition(
-                    opacity: animation,
-                    child: child,
-                  );
-                },
-                transitionDuration: Duration(milliseconds: 1000)));
-      }
-    });
+    _handleStartupLogic(); // ⏱️ Start logic immediately
+  }
+
+  Future<void> _handleStartupLogic() async {
+    // Start both processes at the same time
+    final prefsFuture = SharedPreferences.getInstance();
+    final delay =
+        Future.delayed(const Duration(seconds: 2)); // splash animation duration
+
+    final prefs = await prefsFuture;
+    final bool isFirstTime = prefs.getBool('isFirstTime') ?? true;
+
+    final user = FirebaseAuth.instance.currentUser;
+
+    await delay; // make sure animation finishes before navigating
+
+    if (!mounted) return;
+
+    if (isFirstTime) {
+      await prefs.setBool('isFirstTime', false);
+      _navigateTo(const OnboardingScreen());
+    } else if (user != null) {
+      _navigateTo(const HomePage());
+    } else {
+      _navigateTo(const LoginPage());
+    }
+  }
+
+  void _navigateTo(Widget screen) {
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => screen,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        transitionDuration: const Duration(milliseconds: 800),
+      ),
+    );
   }
 
   @override
@@ -61,7 +88,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color.fromRGBO(244, 242, 230, 1),
+      backgroundColor: const Color.fromRGBO(244, 242, 230, 1),
       body: Center(
         child: AnimatedBuilder(
           animation: _controller,
