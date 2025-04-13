@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'cause_skills.dart';
 import '../services/auth_service.dart';
 
+// Change signup form logic to make sure that
+// corresponding error codes are displayed
+
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
 
