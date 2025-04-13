@@ -33,7 +33,7 @@ class _PostPageState extends State<PostPage> {
   Future<String?> _uploadImageToServer(File imageFile) async {
     try {
       var request = http.MultipartRequest(
-          'POST', Uri.parse('http://localhost:3000/upload'));
+          'POST', Uri.parse('http://10.21.19.245:3000/upload'));
       request.files
           .add(await http.MultipartFile.fromPath('image', imageFile.path));
       var response = await request.send();
