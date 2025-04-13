@@ -13,4 +13,17 @@ class FirestoreService {
     var snapshot = await _db.collection("causes").get();
     return snapshot.docs.map((doc) => doc.data()).toList();
   }
+
+  //Get Location
+  Future<void> addLocation(double latitude, double longitude) async {
+    await _db.collection("locations").add({
+      'latitude': latitude,
+      'longitude': longitude,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
 }
+
+
+

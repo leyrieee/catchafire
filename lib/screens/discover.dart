@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geolocator/geolocator.dart';
+import '../services/location_service.dart';
 
 class DiscoverPage extends StatefulWidget {
   const DiscoverPage({super.key});
@@ -12,42 +12,42 @@ class DiscoverPage extends StatefulWidget {
 class _DiscoverPageState extends State<DiscoverPage> {
   late GoogleMapController mapController;
   LatLng? _currentLocation;
+  final _locationService = LocationService();
 
   final List<Map<String, dynamic>> _events = [
     {
       'title': 'Tech for Good Conference',
-      'position': LatLng(5.5600, -0.2050), // Accra
+      'position': LatLng(5.5600, -0.2050),
     },
     {
       'title': 'Community Design Jam',
-      'position': LatLng(6.6900, -1.6300), // Kumasi
+      'position': LatLng(6.6900, -1.6300),
     },
     {
       'title': 'Green Ghana Cleanup',
-      'position': LatLng(5.6500, -0.1600), // Tema
+      'position': LatLng(5.6500, -0.1600),
     },
   ];
 
   @override
   void initState() {
     super.initState();
-    _determinePosition();
+    _initLocation();
   }
 
-  Future<void> _determinePosition() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return;
+  Future<void> _initLocation() async {
+    final pos = await _locationService.getCurrentPosition();
+    if (pos != null) {
+      setState(() {
+        _currentLocation = LatLng(pos.latitude, pos.longitude);
+      });
 
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
+      await _locationService.saveLocation(pos);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Location updated and saved")),
+      );
     }
-    if (permission == LocationPermission.deniedForever) return;
-
-    final pos = await Geolocator.getCurrentPosition();
-    setState(() {
-      _currentLocation = LatLng(pos.latitude, pos.longitude);
-    });
   }
 
   @override
@@ -58,7 +58,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
           'Discover Nearby',
           style: TextStyle(fontFamily: "GT Ultra", fontWeight: FontWeight.bold),
         ),
-        backgroundColor: Color.fromRGBO(244, 242, 230, 1),
+        backgroundColor: const Color.fromRGBO(244, 242, 230, 1),
         centerTitle: true,
       ),
       body: _currentLocation == null
@@ -66,7 +66,6 @@ class _DiscoverPageState extends State<DiscoverPage> {
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top text section
                 const Padding(
                   padding: EdgeInsets.all(16.0),
                   child: Text(
@@ -74,8 +73,6 @@ class _DiscoverPageState extends State<DiscoverPage> {
                     style: TextStyle(fontSize: 16),
                   ),
                 ),
-
-                // Map section
                 Expanded(
                   child: GoogleMap(
                     onMapCreated: (controller) => mapController = controller,
