@@ -1,4 +1,4 @@
- import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
@@ -15,6 +15,8 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   Map<String, dynamic>? userData;
   List<Map<String, dynamic>> userEvents = [];
+  List<Map<String, dynamic>> rsvpEvents = [];
+
   int totalEvents = 0;
   int totalSkills = 0;
   int totalCauses = 0;
@@ -25,6 +27,7 @@ class _ProfilePageState extends State<ProfilePage> {
     super.initState();
     fetchUserInfo();
     fetchUserEvents();
+    fetchRsvpEvents();
   }
 
   Future<void> fetchUserInfo() async {
@@ -42,6 +45,22 @@ class _ProfilePageState extends State<ProfilePage> {
       });
     }
   }
+
+  Future<void> fetchRsvpEvents() async {
+  final uid = FirebaseAuth.instance.currentUser?.uid;
+  if (uid == null) return;
+
+  final snapshot = await FirebaseFirestore.instance
+      .collection('events')
+      .where('rsvps', arrayContains: uid)
+      .orderBy('date', descending: false)
+      .get();
+
+  setState(() {
+    rsvpEvents = snapshot.docs.map((doc) => doc.data()).toList();
+  });
+}
+
 
   Future<void> fetchUserEvents() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -143,6 +162,9 @@ class _ProfilePageState extends State<ProfilePage> {
                         _buildSkillsSection(),
                         const SizedBox(height: 20),
                         _buildPastEventsSection(),
+                        const SizedBox(height: 20),
+                        _buildUpcomingEventsSection(),
+                        
                       ],
                     ),
                   ),
@@ -321,22 +343,40 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildPastEventsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'My Events',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'GT Ultra',
-          ),
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text(
+        'My Events',
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          fontFamily: 'GT Ultra',
         ),
-        const SizedBox(height: 12),
-        ...userEvents.map((event) => _buildEventItem(event)).toList(),
-      ],
-    );
-  }
+      ),
+      const SizedBox(height: 12),
+      userEvents.isEmpty
+          ? Container(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              alignment: Alignment.center,
+              child: const Text(
+                'No events posted yet.\nClick the "+" button to post an event!',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey,
+                  fontStyle: FontStyle.italic,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            )
+          : Column(
+              children:
+                  userEvents.map((event) => _buildEventItem(event)).toList(),
+            ),
+    ],
+  );
+}
+
 
   Widget _buildEventItem(Map<String, dynamic> event) {
     final title = event['title'] ?? 'Untitled Event';
@@ -361,6 +401,41 @@ class _ProfilePageState extends State<ProfilePage> {
           Text(formattedDate, style: const TextStyle(color: Colors.grey)),
         ],
       ),
+    );
+  }
+
+  Widget _buildUpcomingEventsSection() {
+  return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Upcoming Events',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'GT Ultra',
+          ),
+        ),
+        const SizedBox(height: 12),
+        rsvpEvents.isEmpty
+            ? Container(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                alignment: Alignment.center,
+                child: const Text(
+                  'No upcoming events.',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey,
+                    fontStyle: FontStyle.italic,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              )
+            : Column(
+                children:
+                    rsvpEvents.map((event) => _buildEventItem(event)).toList(),
+              ),
+      ],
     );
   }
 
