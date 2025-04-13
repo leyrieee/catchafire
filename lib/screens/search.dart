@@ -1,8 +1,50 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'event_details.dart';
 
-class SearchPage extends StatelessWidget {
+class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
+
+  @override
+  State<SearchPage> createState() => _SearchPageState();
+}
+
+class _SearchPageState extends State<SearchPage> {
+  String searchQuery = '';
+  List<Map<String, dynamic>> allEvents = [];
+  List<Map<String, dynamic>> filteredEvents = [];
+
+  @override
+  void initState() {
+    super.initState();
+    fetchEvents();
+  }
+
+  Future<void> fetchEvents() async {
+    final querySnapshot =
+        await FirebaseFirestore.instance.collection('events').get();
+    final events = querySnapshot.docs.map((doc) => doc.data()).toList();
+
+    setState(() {
+      allEvents = events;
+      filteredEvents = events;
+    });
+  }
+
+  void _searchEvents(String query) {
+    final lowerQuery = query.toLowerCase();
+
+    setState(() {
+      searchQuery = query;
+      filteredEvents = allEvents.where((event) {
+        final title = event['title']?.toLowerCase() ?? '';
+        final skills = List<String>.from(event['skills'] ?? []);
+        final skillMatch =
+            skills.any((s) => s.toLowerCase().contains(lowerQuery));
+        return title.contains(lowerQuery) || skillMatch;
+      }).toList();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,13 +59,14 @@ class SearchPage extends StatelessWidget {
         centerTitle: true,
         elevation: 0,
       ),
-      body: SingleChildScrollView(
+      body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Search Field
             TextField(
+              onChanged: _searchEvents,
               decoration: InputDecoration(
                 hintText: 'Search events, skills...',
                 prefixIcon: const Icon(Icons.search),
@@ -36,28 +79,6 @@ class SearchPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-
-            // Trending Tags / Filters
-            const Text(
-              'Trending Skills',
-              style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                  fontFamily: "GT Ultra"),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _customChip('Leadership'),
-                _customChip('Fundraising'),
-                _customChip('Design'),
-                _customChip('Marketing'),
-              ],
-            ),
-            const SizedBox(height: 24),
-
             const Text(
               'Recommended Events',
               style: TextStyle(
@@ -67,41 +88,28 @@ class SearchPage extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            _buildEventCard(
-              context,
-              image: 'assets/tech_conference.jpeg',
-              title: 'Tech for Good Conference',
-              organization: 'Impact Ghana',
-              location: 'Accra Digital Centre',
-              date: 'April 20, 2025',
-              skills: ['Programming', 'Leadership'],
-            ),
-            _buildEventCard(
-              context,
-              image: 'assets/design_jam.jpeg',
-              title: 'Community Design Jam',
-              organization: 'Design Lab GH',
-              location: 'Kumasi Hive',
-              date: 'April 25, 2025',
-              skills: ['Design', 'Collaboration'],
+            // Event Results
+            Expanded(
+              child: filteredEvents.isEmpty
+                  ? const Center(child: Text('No events found.'))
+                  : ListView.builder(
+                      itemCount: filteredEvents.length,
+                      itemBuilder: (context, index) {
+                        final event = filteredEvents[index];
+                        return _buildEventCard(
+                          context,
+                          image: event['image'] ?? 'assets/default_event.jpg',
+                          title: event['title'] ?? 'No Title',
+                          organization: event['organization'] ?? 'Unknown Org',
+                          location: event['location'] ?? 'Unknown Location',
+                          date: event['date'] ?? 'TBD',
+                          skills: List<String>.from(event['skills'] ?? []),
+                        );
+                      },
+                    ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _customChip(String label) {
-    return Chip(
-      label: Text(label),
-      backgroundColor: const Color.fromRGBO(244, 242, 230, 1),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide.none,
-      ),
-      labelStyle: const TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
       ),
     );
   }
@@ -192,6 +200,21 @@ class SearchPage extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _customChip(String label) {
+    return Chip(
+      label: Text(label),
+      backgroundColor: const Color.fromRGBO(244, 242, 230, 1),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide.none,
+      ),
+      labelStyle: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
       ),
     );
   }
