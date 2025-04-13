@@ -36,19 +36,24 @@ class _DiscoverPageState extends State<DiscoverPage> {
   }
 
   Future<void> _initLocation() async {
+  try {
     final pos = await _locationService.getCurrentPosition();
     if (pos != null) {
+      print("Location retrieved: ${pos.latitude}, ${pos.longitude}");
       setState(() {
         _currentLocation = LatLng(pos.latitude, pos.longitude);
       });
 
       await _locationService.saveLocation(pos);
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Location updated and saved")),
       );
     }
+  } catch (e) {
+    print("Error getting location: $e");
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -103,3 +108,4 @@ class _DiscoverPageState extends State<DiscoverPage> {
     );
   }
 }
+

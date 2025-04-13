@@ -1,10 +1,8 @@
- import 'dart:io';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:http/http.dart' as http;
-import 'package:googleapis/drive/v3.dart' as drive;
-import 'package:googleapis_auth/googleapis_auth.dart';
-import 'dart:convert';
+import '../services/firebase_service.dart'; 
+
 
 class PostPage extends StatefulWidget {
   const PostPage({super.key});
@@ -16,19 +14,11 @@ class PostPage extends StatefulWidget {
 class _PostPageState extends State<PostPage> {
   File? _coverPhoto;
   final picker = ImagePicker();
-  
+
   final _titleController = TextEditingController();
   final _orgController = TextEditingController();
   final _locationController = TextEditingController();
   DateTime? _selectedDate;
-
-  final _clientId = ClientId("YOUR_CLIENT_ID", "YOUR_CLIENT_SECRET"); // Replace with your credentials
-  late AuthClient _authClient;
-
-  Future<void> _authenticate() async {
-    final credentials = await obtainCredentials(_clientId);
-    _authClient = credentials.authClient;
-  }
 
   Future<void> _pickImage(ImageSource source) async {
     final picked = await picker.pickImage(source: source);
@@ -54,58 +44,80 @@ class _PostPageState extends State<PostPage> {
     }
   }
 
-  Future<void> _uploadImageToDrive() async {
-    if (_coverPhoto == null) return;
-
-    final driveApi = drive.DriveApi(_authClient);
-    final file = drive.File();
-    final media = drive.Media(_coverPhoto!.openRead(), _coverPhoto!.lengthSync());
-
-    final response = await driveApi.files.create(file, uploadMedia: media);
-    final fileUrl = response.webViewLink;
-    debugPrint("File uploaded: $fileUrl");
+void _submitForm() async {
+  if (_coverPhoto == null ||
+      _titleController.text.isEmpty ||
+      _orgController.text.isEmpty ||
+      _locationController.text.isEmpty ||
+      _selectedDate == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please complete all fields')),
+    );
+    return;
   }
 
-  void _submitForm() async {
-    if (_coverPhoto == null ||
-        _titleController.text.isEmpty ||
-        _orgController.text.isEmpty ||
-        _locationController.text.isEmpty ||
-        _selectedDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please complete all fields')),
-      );
-      return;
-    }
+  try {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Uploading... Please wait')),
+    );
 
-    try {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Uploading... Please wait')),
-      );
+    final imageUrl = await FirebaseService.uploadImageToStorage(_coverPhoto!);
+    debugPrint('Image uploaded: $imageUrl');
 
-      await _authenticate();
-      await _uploadImageToDrive();
+    await FirebaseService.saveEventToFirestore({
+      'title': _titleController.text.trim(),
+      'organization': _orgController.text.trim(),
+      'location': _locationController.text.trim(),
+      'date': _selectedDate,
+      'imageUrl': imageUrl,
+      'createdAt': DateTime.now(),
+    });
+    debugPrint('Event saved to Firestore');
 
-      // Now save your event data as needed (perhaps in Firebase or Firestore)
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Event posted successfully!')),
+    );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Event posted successfully!')),
-      );
-
-      setState(() {
-        _coverPhoto = null;
-        _titleController.clear();
-        _orgController.clear();
-        _locationController.clear();
-        _selectedDate = null;
-      });
-    } catch (e) {
-      debugPrint('Error uploading: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to post event. Please try again.')),
-      );
-    }
+    setState(() {
+      _coverPhoto = null;
+      _titleController.clear();
+      _orgController.clear();
+      _locationController.clear();
+      _selectedDate = null;
+    });
+  } catch (e, stack) {
+    debugPrint('❌ ERROR: $e');
+    debugPrint('STACK TRACE: $stack');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Failed to post event. Please try again.')),
+    );
   }
+}
+
+
+
+  Widget _buildLabel(String text) => Padding(
+        padding: const EdgeInsets.only(top: 16, bottom: 6),
+        child: Text(text,
+            style: const TextStyle(
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                color: Color.fromRGBO(41, 37, 37, 1))),
+      );
+
+  InputDecoration _inputStyle(String hint) => InputDecoration(
+        hintText: hint,
+        filled: true,
+        fillColor: Colors.white,
+        hintStyle: const TextStyle(color: Colors.grey),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
