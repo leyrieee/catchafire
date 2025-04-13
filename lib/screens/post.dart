@@ -1,7 +1,4 @@
-<<<<<<< HEAD
 import 'dart:convert';
-=======
->>>>>>> 2ed528d2571c4344db9f17950107842b33267247
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -289,7 +286,3 @@ class _PostPageState extends State<PostPage> {
     }
   }
 }
-<<<<<<< HEAD
-=======
-
->>>>>>> 2ed528d2571c4344db9f17950107842b33267247
