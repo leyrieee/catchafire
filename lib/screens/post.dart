@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -253,3 +254,6 @@ void _submitForm() async {
     );
   }
 }
+=======
+//will re-implement
+>>>>>>> bb8a7005453ee0c0a6d99cace02cf8f7eeba17f1
