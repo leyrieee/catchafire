@@ -1,33 +1,62 @@
-//rework
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  Map<String, dynamic>? userData;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchUserInfo();
+  }
+
+  Future<void> fetchUserInfo() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final doc =
+        await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    if (doc.exists) {
+      setState(() {
+        userData = doc.data();
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color.fromRGBO(244, 242, 230, 1),
       body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(20),
+        child: userData == null
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
                 children: [
-                  _buildStatsCard(),
-                  const SizedBox(height: 20),
-                  _buildCausesSection(),
-                  const SizedBox(height: 20),
-                  _buildSkillsSection(),
-                  const SizedBox(height: 20),
-                  _buildPastEventsSection(),
+                  _buildHeader(),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.all(20),
+                      children: [
+                        _buildStatsCard(),
+                        const SizedBox(height: 20),
+                        _buildCausesSection(),
+                        const SizedBox(height: 20),
+                        _buildSkillsSection(),
+                        const SizedBox(height: 20),
+                        _buildPastEventsSection(),
+                      ],
+                    ),
+                  ),
                 ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -39,25 +68,24 @@ class ProfilePage extends StatelessWidget {
         children: [
           const CircleAvatar(
             radius: 35,
-            backgroundImage:
-                AssetImage('assets/profile_pic.jpg'), // Placeholder
+            backgroundImage: AssetImage('assets/profile_pic.jpg'),
           ),
           const SizedBox(width: 16),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
+            children: [
               Text(
-                'Maya Thompson',
-                style: TextStyle(
+                userData?['fullName'] ?? 'Unknown User',
+                style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                   fontFamily: 'GT Ultra',
                 ),
               ),
-              SizedBox(height: 4),
+              const SizedBox(height: 4),
               Text(
-                'Joined January 2025', //check later
-                style: TextStyle(
+                'Joined ${_formatJoinDate(userData?['createdAt'])}',
+                style: const TextStyle(
                   color: Colors.grey,
                   fontSize: 14,
                   fontFamily: 'Inter',
@@ -68,6 +96,33 @@ class ProfilePage extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  static String _formatJoinDate(dynamic timestamp) {
+    if (timestamp is Timestamp) {
+      final date = timestamp.toDate();
+      return '${_monthName(date.month)} ${date.year}';
+    }
+    return 'Unknown';
+  }
+
+  static String _monthName(int month) {
+    const months = [
+      '',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December'
+    ];
+    return months[month];
   }
 
   Widget _buildStatsCard() {
@@ -89,6 +144,7 @@ class ProfilePage extends StatelessWidget {
   }
 
   Widget _buildCausesSection() {
+    final causes = List<String>.from(userData?['causes'] ?? []);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -104,18 +160,14 @@ class ProfilePage extends StatelessWidget {
         Wrap(
           spacing: 10,
           runSpacing: 10,
-          children: [
-            _customChip('Childcare'),
-            _customChip('Technology'),
-            _customChip('Healthcare'),
-            _customChip('Business'),
-          ],
+          children: causes.map((cause) => _customChip(cause)).toList(),
         ),
       ],
     );
   }
 
   Widget _buildSkillsSection() {
+    final skills = List<String>.from(userData?['skills'] ?? []);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -131,12 +183,7 @@ class ProfilePage extends StatelessWidget {
         Wrap(
           spacing: 10,
           runSpacing: 10,
-          children: [
-            _customChip('Gardening'),
-            _customChip('Communication'),
-            _customChip('Teaching'),
-            _customChip('Cooking'),
-          ],
+          children: skills.map((skill) => _customChip(skill)).toList(),
         ),
       ],
     );
@@ -184,7 +231,7 @@ class ProfilePage extends StatelessWidget {
   Widget _customChip(String label) {
     return Chip(
       label: Text(label),
-      backgroundColor: Color.fromRGBO(244, 242, 230, 0.7),
+      backgroundColor: const Color.fromRGBO(244, 242, 230, 0.7),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide.none,
