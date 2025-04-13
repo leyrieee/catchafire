@@ -1,18 +1,25 @@
+import 'package:catchafire/services/firestore_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'cause_skills.dart';
-import '../services/auth_service.dart'; //✅ Importing AuthService for Firebase Auth
-class SignUpPage extends StatefulWidget {  //✅ Changed to StatefulWidget to manage form state
+import '../services/auth_service.dart';
+
+class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
 
   @override
   State<SignUpPage> createState() => _SignUpPageState(); // ✅
 }
 
-class _SignUpPageState extends State<SignUpPage> { //✅ Used _SignUpPageState to manage user input
-  final _emailController = TextEditingController(); //✅ Added controllers for text fields
-  final _passwordController = TextEditingController(); //✅ Added controllers for text fields
-  final _confirmPasswordController = TextEditingController(); //✅ Added controllers for confirm password
-  final _authService = AuthService(); //✅ Created AuthService instance for Firebase Auth
+class _SignUpPageState extends State<SignUpPage> {
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  final _authService = AuthService();
+  final _firestoreService = FirestoreService();
 
   String _errorMessage = ''; //✅ Added variable to handle errors
 
@@ -54,48 +61,60 @@ class _SignUpPageState extends State<SignUpPage> { //✅ Used _SignUpPageState t
                 ),
               ),
               const SizedBox(height: 20),
-              
+
               // New Fields
-              buildTextField('Full Name'),
+              buildTextField('Full Name', controller: _nameController),
               const SizedBox(height: 10),
-              buildTextField('Email', controller: _emailController), //✅ Added controller for email
+              buildTextField('Email', controller: _emailController),
               const SizedBox(height: 10),
-              buildTextField('Phone Number'),
+              buildTextField('Phone Number', controller: _phoneController),
               const SizedBox(height: 10),
-              buildTextField('City/Location'),
+              buildTextField('City/Location', controller: _cityController),
               const SizedBox(height: 10),
-              buildTextField('Password', controller: _passwordController, obscureText: true), //✅ Added controller for password
+              buildTextField('Password',
+                  controller: _passwordController, obscureText: true),
               const SizedBox(height: 10),
-              buildTextField('Confirm Password', controller: _confirmPasswordController, obscureText: true), //✅ Added controller for confirm password
+              buildTextField('Confirm Password',
+                  controller: _confirmPasswordController, obscureText: true),
 
               const SizedBox(height: 20),
               // Sign Up Button
               buildPrimaryButton('Sign Up', () async {
-                if (_passwordController.text != _confirmPasswordController.text) {
+                if (_passwordController.text !=
+                    _confirmPasswordController.text) {
                   setState(() {
-                    _errorMessage = 'Passwords do not match'; //✅ Added password matching logic
+                    _errorMessage = 'Passwords do not match';
                   });
                   return;
                 }
 
                 final user = await _authService.registerWithEmail(
-                  _emailController.text,
-                  _passwordController.text,
+                  _emailController.text.trim(),
+                  _passwordController.text.trim(),
                 );
 
                 if (user != null) {
-                  Navigator.push(
+                  await _firestoreService.createUser(user.uid, {
+                    'fullName': _nameController.text.trim(),
+                    'email': _emailController.text.trim(),
+                    'phone': _phoneController.text.trim(),
+                    'city': _cityController.text.trim(),
+                    'skills': [],
+                    'causes': [],
+                    'createdAt': FieldValue.serverTimestamp(),
+                  });
+
+                  Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(
                         builder: (context) => const CauseAndSkillsPage()),
                   );
                 } else {
                   setState(() {
-                    _errorMessage = 'Failed to sign up. Please try again.'; //✅ Show error message if signup fails
+                    _errorMessage = 'Failed to sign up. Please try again.';
                   });
                 }
               }),
-
               // Error message display
               if (_errorMessage.isNotEmpty)
                 Padding(
@@ -141,9 +160,11 @@ class _SignUpPageState extends State<SignUpPage> { //✅ Used _SignUpPageState t
     );
   }
 
-  Widget buildTextField(String hint, {bool obscureText = false, TextEditingController? controller}) { //✅ Added controller parameter
+  Widget buildTextField(String hint,
+      {bool obscureText = false, TextEditingController? controller}) {
+    //✅ Added controller parameter
     return TextField(
-      controller: controller,  //✅ Set controller for text field
+      controller: controller, //✅ Set controller for text field
       obscureText: obscureText,
       decoration: InputDecoration(
         hintText: hint,
@@ -174,5 +195,16 @@ class _SignUpPageState extends State<SignUpPage> { //✅ Used _SignUpPageState t
         child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    _cityController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
   }
 }

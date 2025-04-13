@@ -5,12 +5,10 @@ import 'firebase_options.dart';
 import 'package:flutter/material.dart';
 
 void main() async {
-  // ✅
-  WidgetsFlutterBinding.ensureInitialized(); // ✅
+  WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
-    // ✅
-    options: DefaultFirebaseOptions.currentPlatform, // ✅
-  ); // ✅
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const CatchafireApp());
 }
 
