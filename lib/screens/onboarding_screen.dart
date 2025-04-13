@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
-import 'login.dart';
 import 'signup.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -76,27 +75,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const LoginPage()),
-                      );
-                    },
-                    child: Text("Login"),
-                  ),
-                  OutlinedButton(
-                    onPressed: () {
-                      // Navigate to sign up
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const SignUpPage()),
-                      );
-                    },
-                    child: Text("Sign Up"),
-                  ),
+                  Expanded(
+                    child: buildPrimaryButton(
+                      'Sign Up',
+                      () {
+                        // Navigate to sign up
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const SignUpPage()),
+                        );
+                      },
+                    ),
+                  )
                 ],
               ),
             )
@@ -166,6 +157,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget buildPrimaryButton(String text, VoidCallback onPressed) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8.0),
+            side: const BorderSide(color: Color(0xFF6FE6FF)),
+          ),
+        ),
+        onPressed: onPressed,
+        child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold)),
+      ),
     );
   }
 }

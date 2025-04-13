@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'cause_skills.dart';
 import '../services/auth_service.dart';
+import 'login.dart';
 
 // Change signup form logic to make sure that corresponding error codes are displayed
 // eg. Email in use error, passwords don't match error, fill all fields, etc.
@@ -141,7 +142,11 @@ class _SignUpPageState extends State<SignUpPage> {
                     ),
                     GestureDetector(
                       onTap: () {
-                        Navigator.pop(context);
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const LoginPage()),
+                        );
                       },
                       child: const Text(
                         "Log in",
