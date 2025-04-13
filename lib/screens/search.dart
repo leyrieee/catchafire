@@ -128,7 +128,14 @@ class _SearchPageState extends State<SearchPage> {
         Navigator.push(
           context,
           MaterialPageRoute(
-              builder: (context) => EventDetailPage(eventTitle: title)),
+              builder: (context) => EventDetailPage(
+  eventTitle: title,
+  eventDate: 'April 20, 2025', // Example, replace with real data
+  eventLocation: 'Accra Digital Centre', // Example
+  eventDescription: 'A great event near you.', // Example
+  organizerPhone: '+233501234567', // Replace with the actual phone number
+)),
+          
         );
       },
       child: Container(
