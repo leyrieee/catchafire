@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import '../services/firebase_service.dart';
 
@@ -28,18 +30,30 @@ class _PostPageState extends State<PostPage> {
     }
   }
 
-  Future<void> _selectDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: now,
-      firstDate: now,
-      lastDate: DateTime(now.year + 2),
-    );
-    if (picked != null) {
-      setState(() {
-        _selectedDate = picked;
-      });
+  Future<String?> _uploadImageToServer(File imageFile) async {
+    try {
+      var request = http.MultipartRequest(
+          'POST',
+          Uri.parse(
+              'http://localhost:3000/upload') // Change to your server's URL
+          );
+      request.files
+          .add(await http.MultipartFile.fromPath('image', imageFile.path));
+      var response = await request.send();
+
+      if (response.statusCode == 200) {
+        // The image was successfully uploaded to Google Drive
+        final responseBody = await response.stream.bytesToString();
+        final data = json.decode(responseBody);
+        return data[
+            'viewLink']; // Assuming the server sends back the Google Drive URL
+      } else {
+        print("Failed to upload image to server.");
+        return null;
+      }
+    } catch (e) {
+      print("Error uploading image: $e");
+      return null;
     }
   }
 
@@ -60,9 +74,15 @@ class _PostPageState extends State<PostPage> {
         const SnackBar(content: Text('Uploading... Please wait')),
       );
 
-      final imageUrl = await FirebaseService.uploadImageToStorage(_coverPhoto!);
+      // Upload the image to the server (Google Drive)
+      final imageUrl = await _uploadImageToServer(_coverPhoto!);
+      if (imageUrl == null) {
+        throw "Image upload failed";
+      }
+
       debugPrint('Image uploaded: $imageUrl');
 
+      // Save the event details to Firestore (you can use Firebase SDK as usual)
       await FirebaseService.saveEventToFirestore({
         'title': _titleController.text.trim(),
         'organization': _orgController.text.trim(),
@@ -77,6 +97,7 @@ class _PostPageState extends State<PostPage> {
         const SnackBar(content: Text('Event posted successfully!')),
       );
 
+      // Clear the form
       setState(() {
         _coverPhoto = null;
         _titleController.clear();
@@ -84,9 +105,8 @@ class _PostPageState extends State<PostPage> {
         _locationController.clear();
         _selectedDate = null;
       });
-    } catch (e, stack) {
+    } catch (e) {
       debugPrint('❌ ERROR: $e');
-      debugPrint('STACK TRACE: $stack');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('Failed to post event. Please try again.')),
@@ -249,5 +269,20 @@ class _PostPageState extends State<PostPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _selectDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: now,
+      lastDate: DateTime(now.year + 2),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
   }
 }
