@@ -12,7 +12,7 @@ class AuthService {
       );
       return result.user;
     } catch (e) {
-      print("Register Error: $e");
+      //print("Register Error: $e");
       return null;
     }
   }
@@ -26,7 +26,7 @@ class AuthService {
       );
       return result.user;
     } catch (e) {
-      print("Login Error: $e");
+      //print("Login Error: $e");
       return null;
     }
   }
@@ -35,7 +35,6 @@ class AuthService {
   Future<void> signOut() async {
     await _auth.signOut();
   }
-  
 
   // ✅ Sign in method
   Future<UserCredential> signIn(String email, String password) async {
@@ -44,5 +43,4 @@ class AuthService {
       password: password,
     );
   }
-
 }

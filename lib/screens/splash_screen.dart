@@ -38,11 +38,10 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller.forward();
 
-    _handleStartupLogic(); // ⏱️ Start logic immediately
+    _handleStartupLogic();
   }
 
   Future<void> _handleStartupLogic() async {
-    // Start both processes at the same time
     final prefsFuture = SharedPreferences.getInstance();
     final delay =
         Future.delayed(const Duration(seconds: 2)); // splash animation duration
@@ -52,7 +51,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     final user = FirebaseAuth.instance.currentUser;
 
-    await delay; // make sure animation finishes before navigating
+    await delay;
 
     if (!mounted) return;
 

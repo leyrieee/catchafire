@@ -5,14 +5,11 @@ import 'cause_skills.dart';
 import '../services/auth_service.dart';
 import 'login.dart';
 
-// Change signup form logic to make sure that corresponding error codes are displayed
-// eg. Email in use error, passwords don't match error, fill all fields, etc.
-
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
 
   @override
-  State<SignUpPage> createState() => _SignUpPageState(); // ✅
+  State<SignUpPage> createState() => _SignUpPageState();
 }
 
 class _SignUpPageState extends State<SignUpPage> {
@@ -25,7 +22,127 @@ class _SignUpPageState extends State<SignUpPage> {
   final _authService = AuthService();
   final _firestoreService = FirestoreService();
 
-  String _errorMessage = ''; //✅ Added variable to handle errors
+  String _errorMessage = '';
+  bool _isLoading = false;
+
+  Future<void> _signUp() async {
+    // Reset error message
+    setState(() {
+      _errorMessage = '';
+      _isLoading = true;
+    });
+
+    // Validate all fields are filled
+    if (_nameController.text.trim().isEmpty ||
+        _emailController.text.trim().isEmpty ||
+        _phoneController.text.trim().isEmpty ||
+        _cityController.text.trim().isEmpty ||
+        _passwordController.text.isEmpty ||
+        _confirmPasswordController.text.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'Please fill in all fields';
+        _isLoading = false;
+      });
+      return;
+    }
+
+    // Validate email format
+    final emailRegExp = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    if (!emailRegExp.hasMatch(_emailController.text.trim())) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'Please enter a valid email address';
+        _isLoading = false;
+      });
+      return;
+    }
+
+    // Validate password length
+    if (_passwordController.text.length < 6) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'Password must be at least 6 characters long';
+        _isLoading = false;
+      });
+      return;
+    }
+
+    // Validate passwords match
+    if (_passwordController.text != _confirmPasswordController.text) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'Passwords do not match';
+        _isLoading = false;
+      });
+      return;
+    }
+
+    try {
+      final user = await _authService.registerWithEmail(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      if (user != null) {
+        try {
+          await _firestoreService.createUser(user.uid, {
+            'fullName': _nameController.text.trim(),
+            'email': _emailController.text.trim(),
+            'phone': _phoneController.text.trim(),
+            'city': _cityController.text.trim(),
+            'skills': [],
+            'causes': [],
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+
+          if (!mounted) return;
+
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const CauseAndSkillsPage()),
+          );
+        } catch (e) {
+          if (!mounted) return;
+          setState(() {
+            _errorMessage = 'Error saving your profile: Please try again';
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (!mounted) return;
+        setState(() {
+          _errorMessage = 'Account creation failed: Please try again';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = _getReadableErrorMessage(e.toString());
+        _isLoading = false;
+      });
+    }
+  }
+
+  String _getReadableErrorMessage(String errorMessage) {
+    // Convert Firebase error messages to user-friendly messages
+    if (errorMessage.contains('email-already-in-use')) {
+      return 'This email is already registered. Please use a different email or log in.';
+    } else if (errorMessage.contains('invalid-email')) {
+      return 'Please enter a valid email address.';
+    } else if (errorMessage.contains('operation-not-allowed')) {
+      return 'Email/password accounts are not enabled. Please contact support.';
+    } else if (errorMessage.contains('weak-password')) {
+      return 'Your password is too weak. Please use a stronger password.';
+    } else if (errorMessage.contains('network-request-failed')) {
+      return 'Network error. Please check your internet connection.';
+    }
+    // Generic error message for any other errors
+    return 'Signup failed. Please try again later.';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +183,7 @@ class _SignUpPageState extends State<SignUpPage> {
               ),
               const SizedBox(height: 20),
 
-              // New Fields
+              // Form Fields
               buildTextField('Full Name', controller: _nameController),
               const SizedBox(height: 10),
               buildTextField('Email', controller: _emailController),
@@ -82,43 +199,12 @@ class _SignUpPageState extends State<SignUpPage> {
                   controller: _confirmPasswordController, obscureText: true),
 
               const SizedBox(height: 20),
+
               // Sign Up Button
-              buildPrimaryButton('Sign Up', () async {
-                if (_passwordController.text !=
-                    _confirmPasswordController.text) {
-                  setState(() {
-                    _errorMessage = 'Passwords do not match';
-                  });
-                  return;
-                }
+              _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : buildPrimaryButton('Sign Up', _signUp),
 
-                final user = await _authService.registerWithEmail(
-                  _emailController.text.trim(),
-                  _passwordController.text.trim(),
-                );
-
-                if (user != null) {
-                  await _firestoreService.createUser(user.uid, {
-                    'fullName': _nameController.text.trim(),
-                    'email': _emailController.text.trim(),
-                    'phone': _phoneController.text.trim(),
-                    'city': _cityController.text.trim(),
-                    'skills': [],
-                    'causes': [],
-                    'createdAt': FieldValue.serverTimestamp(),
-                  });
-
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const CauseAndSkillsPage()),
-                  );
-                } else {
-                  setState(() {
-                    _errorMessage = 'Failed to sign up. Please try again.';
-                  });
-                }
-              }),
               // Error message display
               if (_errorMessage.isNotEmpty)
                 Padding(
@@ -126,6 +212,7 @@ class _SignUpPageState extends State<SignUpPage> {
                   child: Text(
                     _errorMessage,
                     style: const TextStyle(color: Colors.red),
+                    textAlign: TextAlign.center,
                   ),
                 ),
 
@@ -170,9 +257,8 @@ class _SignUpPageState extends State<SignUpPage> {
 
   Widget buildTextField(String hint,
       {bool obscureText = false, TextEditingController? controller}) {
-    //✅ Added controller parameter
     return TextField(
-      controller: controller, //✅ Set controller for text field
+      controller: controller,
       obscureText: obscureText,
       decoration: InputDecoration(
         hintText: hint,

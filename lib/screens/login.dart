@@ -6,37 +6,67 @@ import 'home.dart';
 AuthService authService = AuthService();
 
 class LoginPage extends StatefulWidget {
-  // ✅ Changed to StatefulWidget
   const LoginPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState(); // ✅
+  State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
-  // ✅
-  final TextEditingController emailController = TextEditingController(); // ✅
-  final TextEditingController passwordController = TextEditingController(); // ✅
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
 
   void _login() async {
-    // ✅
-    String email = emailController.text.trim(); // ✅
-    String password = passwordController.text.trim(); // ✅
+    String email = emailController.text.trim();
+    String password = passwordController.text.trim();
 
     try {
-      await authService.signIn(email, password); // ✅
+      await authService.signIn(email, password);
+      if (!mounted) return; // Check if widget is still mounted
+
       Navigator.pushReplacement(
-        // ✅
         context,
-        MaterialPageRoute(builder: (context) => const HomePage()), // ✅
+        MaterialPageRoute(builder: (context) => const HomePage()),
       );
     } catch (e) {
+      if (!mounted) return; // Check if widget is still mounted
+
+      // Show a user-friendly error message
+      String errorMessage = _getReadableErrorMessage(e.toString());
       ScaffoldMessenger.of(context).showSnackBar(
-        // ✅
-        SnackBar(content: Text("Login failed: $e")), // ✅
+        SnackBar(content: Text(errorMessage)),
       );
     }
-  } // ✅
+  }
+
+  String _getReadableErrorMessage(String errorMessage) {
+    // Convert Firebase error messages to user-friendly messages
+    if (errorMessage.contains('user-not-found')) {
+      return "No account found with this email. Please check your email or sign up.";
+    } else if (errorMessage.contains('wrong-password')) {
+      return "Incorrect password. Please try again.";
+    } else if (errorMessage.contains('invalid-email')) {
+      return "Please enter a valid email address.";
+    } else if (errorMessage.contains('user-disabled')) {
+      return "This account has been disabled. Please contact support.";
+    } else if (errorMessage.contains('too-many-requests')) {
+      return "Too many failed login attempts. Please try again later.";
+    } else if (errorMessage.contains('network-request-failed')) {
+      return "Network error. Please check your internet connection.";
+    } else if (errorMessage.contains('email-already-in-use')) {
+      return "This email is already in use. Please use a different email or try logging in.";
+    }
+    // Generic error message for any other errors
+    return "Couldn't log in. Please try again later.";
+  }
+
+  @override
+  void dispose() {
+    // Clean up controllers when the widget is disposed
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -141,9 +171,8 @@ class _LoginPageState extends State<LoginPage> {
 
   Widget buildTextField(String hint,
       {bool obscureText = false, TextEditingController? controller}) {
-    // ✅
     return TextField(
-      controller: controller, // ✅
+      controller: controller,
       obscureText: obscureText,
       decoration: InputDecoration(
         hintText: hint,

@@ -21,93 +21,160 @@ class _ProfilePageState extends State<ProfilePage> {
   int totalSkills = 0;
   int totalCauses = 0;
   File? _profileImage;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    fetchUserInfo();
-    fetchUserEvents();
-    fetchRsvpEvents();
+    _loadAllData();
+  }
+
+  Future<void> _loadAllData() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    await Future.wait([
+      fetchUserInfo(),
+      fetchUserEvents(),
+      fetchRsvpEvents(),
+    ]);
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> fetchUserInfo() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    final doc =
-        await FirebaseFirestore.instance.collection('users').doc(uid).get();
-    if (doc.exists) {
-      setState(() {
-        userData = doc.data();
-        totalSkills = (userData?['skills']?.length ?? 0);
-        totalEvents = (userData?['events']?.length ?? 0);
-        totalCauses = (userData?['causes']?.length ?? 0);
-      });
+    try {
+      final doc =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      if (!mounted) return;
+
+      if (doc.exists) {
+        setState(() {
+          userData = doc.data();
+          totalSkills = (userData?['skills']?.length ?? 0);
+          totalEvents = (userData?['events']?.length ?? 0);
+          totalCauses = (userData?['causes']?.length ?? 0);
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error loading profile: ${e.toString()}")),
+      );
     }
   }
 
   Future<void> fetchRsvpEvents() async {
-  final uid = FirebaseAuth.instance.currentUser?.uid;
-  if (uid == null) return;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
 
-  final snapshot = await FirebaseFirestore.instance
-      .collection('events')
-      .where('rsvps', arrayContains: uid)
-      .orderBy('date', descending: false)
-      .get();
+    try {
+      // Get today's date at midnight to compare with event dates
+      final today = DateTime.now();
+      final todayMidnight = DateTime(today.year, today.month, today.day);
+      final todayTimestamp = Timestamp.fromDate(todayMidnight);
 
-  setState(() {
-    rsvpEvents = snapshot.docs.map((doc) => doc.data()).toList();
-  });
-}
+      final snapshot = await FirebaseFirestore.instance
+          .collection('events')
+          .where('rsvps', arrayContains: uid)
+          .where('date', isGreaterThanOrEqualTo: todayTimestamp)
+          .orderBy('date', descending: false)
+          .get();
 
+      if (!mounted) return;
+
+      setState(() {
+        rsvpEvents = snapshot.docs.map((doc) {
+          final data = doc.data();
+          data['id'] = doc.id; // Add document ID to the data
+          return data;
+        }).toList();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text("Error loading upcoming events: ${e.toString()}")),
+      );
+    }
+  }
 
   Future<void> fetchUserEvents() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    final querySnapshot = await FirebaseFirestore.instance
-        .collection('events')
-        .where('userId', isEqualTo: uid)
-        .orderBy('date', descending: true)
-        .get();
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('events')
+          .where('userId', isEqualTo: uid)
+          .orderBy('date', descending: true)
+          .get();
 
-    setState(() {
-      userEvents = querySnapshot.docs.map((doc) => doc.data()).toList();
-    });
+      if (!mounted) return;
+
+      setState(() {
+        userEvents = querySnapshot.docs.map((doc) {
+          final data = doc.data();
+          data['id'] = doc.id; // Add document ID to the data
+          return data;
+        }).toList();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error loading your events: ${e.toString()}")),
+      );
+    }
   }
 
   Future<void> _updateProfilePicture() async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
-    if (pickedFile != null) {
-      setState(() {
-        _profileImage = File(pickedFile.path);
-      });
+    try {
+      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
-      final user = FirebaseAuth.instance.currentUser;
-      final storageRef = FirebaseStorage.instance
-          .ref()
-          .child('profile_pictures/${user?.uid}.jpg');
+      if (pickedFile != null) {
+        setState(() {
+          _profileImage = File(pickedFile.path);
+        });
 
-      try {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user == null) return;
+
+        final storageRef = FirebaseStorage.instance
+            .ref()
+            .child('profile_pictures/${user.uid}.jpg');
+
         await storageRef.putFile(_profileImage!);
         final url = await storageRef.getDownloadURL();
 
+        if (!mounted) return;
+
         await FirebaseFirestore.instance
             .collection('users')
-            .doc(user?.uid)
+            .doc(user.uid)
             .update({'profilePicture': url});
 
         setState(() {
-          userData?['profilePicture'] = url;
+          if (userData != null) {
+            userData!['profilePicture'] = url;
+          }
         });
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Error updating profile picture")),
-        );
       }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text("Error updating profile picture: ${e.toString()}")),
+      );
     }
   }
 
@@ -126,13 +193,36 @@ class _ProfilePageState extends State<ProfilePage> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              final user = FirebaseAuth.instance.currentUser;
-              await user?.delete();
-              if (!mounted) return;
-              Navigator.of(context).popUntil((route) => route.isFirst);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Account deleted successfully")),
-              );
+              try {
+                final user = FirebaseAuth.instance.currentUser;
+                if (user == null) {
+                  Navigator.of(context).pop();
+                  return;
+                }
+
+                // Delete user data from Firestore first
+                await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(user.uid)
+                    .delete();
+
+                // Then delete the account
+                await user.delete();
+
+                if (!mounted) return;
+                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).popUntil((route) => route.isFirst);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Account deleted successfully")),
+                );
+              } catch (e) {
+                if (!mounted) return;
+                Navigator.of(context).pop(); // Close dialog
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                      content: Text("Error deleting account: ${e.toString()}")),
+                );
+              }
             },
             child: const Text("Delete"),
           ),
@@ -146,30 +236,47 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       backgroundColor: const Color.fromRGBO(244, 242, 230, 1),
       body: SafeArea(
-        child: userData == null
+        child: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : Column(
-                children: [
-                  _buildHeader(),
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.all(20),
+            : (userData == null
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _buildStatsCard(),
-                        const SizedBox(height: 20),
-                        _buildCausesSection(),
-                        const SizedBox(height: 20),
-                        _buildSkillsSection(),
-                        const SizedBox(height: 20),
-                        _buildPastEventsSection(),
-                        const SizedBox(height: 20),
-                        _buildUpcomingEventsSection(),
-                        
+                        const Text("Could not load profile data"),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _loadAllData,
+                          child: const Text("Retry"),
+                        ),
                       ],
                     ),
-                  ),
-                ],
-              ),
+                  )
+                : Column(
+                    children: [
+                      _buildHeader(),
+                      Expanded(
+                        child: RefreshIndicator(
+                          onRefresh: _loadAllData,
+                          child: ListView(
+                            padding: const EdgeInsets.all(20),
+                            children: [
+                              _buildStatsCard(),
+                              const SizedBox(height: 20),
+                              _buildCausesSection(),
+                              const SizedBox(height: 20),
+                              _buildSkillsSection(),
+                              const SizedBox(height: 20),
+                              _buildUpcomingEventsSection(),
+                              const SizedBox(height: 20),
+                              _buildPastEventsSection(),
+                              const SizedBox(height: 40),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  )),
       ),
     );
   }
@@ -187,17 +294,37 @@ class _ProfilePageState extends State<ProfilePage> {
                   radius: 35,
                   backgroundImage: _profileImage != null
                       ? FileImage(_profileImage!)
-                      : NetworkImage(userData?['profilePicture'] ??
-                          'https://www.example.com/default-avatar.jpg') as ImageProvider,
+                      : (userData?['profilePicture'] != null
+                          ? NetworkImage(userData!['profilePicture'])
+                          : const AssetImage('assets/default_avatar.png')
+                              as ImageProvider),
                 ),
               ),
               Positioned(
                 bottom: 0,
                 right: 0,
-                child: IconButton(
-                  icon: const Icon(Icons.add_a_photo),
-                  onPressed: _updateProfilePicture,
-                  color: Colors.blue,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        spreadRadius: 1,
+                        blurRadius: 3,
+                      ),
+                    ],
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.add_a_photo, size: 18),
+                    onPressed: _updateProfilePicture,
+                    color: Colors.blue,
+                    constraints: const BoxConstraints(
+                      minWidth: 30,
+                      minHeight: 30,
+                    ),
+                    padding: const EdgeInsets.all(6),
+                  ),
                 ),
               ),
             ],
@@ -230,12 +357,20 @@ class _ProfilePageState extends State<ProfilePage> {
           PopupMenuButton<String>(
             onSelected: (value) async {
               if (value == 'logout') {
-                await FirebaseAuth.instance.signOut();
-                if (!mounted) return;
-                Navigator.of(context).popUntil((route) => route.isFirst);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Logged out successfully")),
-                );
+                try {
+                  await FirebaseAuth.instance.signOut();
+                  if (!mounted) return;
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Logged out successfully")),
+                  );
+                } catch (e) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: Text("Error logging out: ${e.toString()}")),
+                  );
+                }
               } else if (value == 'delete') {
                 _showDeleteConfirmationDialog();
               }
@@ -310,11 +445,23 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ),
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: causes.map((cause) => _customChip(cause)).toList(),
-        ),
+        causes.isEmpty
+            ? const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  'No causes selected yet.',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              )
+            : Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: causes.map((cause) => _customChip(cause)).toList(),
+              ),
       ],
     );
   }
@@ -333,79 +480,64 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ),
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: skills.map((skill) => _customChip(skill)).toList(),
-        ),
+        skills.isEmpty
+            ? const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  'No skills selected yet.',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              )
+            : Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: skills.map((skill) => _customChip(skill)).toList(),
+              ),
       ],
     );
   }
 
   Widget _buildPastEventsSection() {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      const Text(
-        'My Events',
-        style: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          fontFamily: 'GT Ultra',
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'My Events',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'GT Ultra',
+          ),
         ),
-      ),
-      const SizedBox(height: 12),
-      userEvents.isEmpty
-          ? Container(
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              alignment: Alignment.center,
-              child: const Text(
-                'No events posted yet.\nClick the "+" button to post an event!',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
-                  fontStyle: FontStyle.italic,
+        const SizedBox(height: 12),
+        userEvents.isEmpty
+            ? Container(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                alignment: Alignment.center,
+                child: const Text(
+                  'No events posted yet.\nClick the "+" button to post an event!',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey,
+                    fontStyle: FontStyle.italic,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
+              )
+            : Column(
+                children:
+                    userEvents.map((event) => _buildEventItem(event)).toList(),
               ),
-            )
-          : Column(
-              children:
-                  userEvents.map((event) => _buildEventItem(event)).toList(),
-            ),
-    ],
-  );
-}
-
-
-  Widget _buildEventItem(Map<String, dynamic> event) {
-    final title = event['title'] ?? 'Untitled Event';
-    final date = event['date'] is Timestamp
-        ? (event['date'] as Timestamp).toDate()
-        : DateTime.now();
-
-    final formattedDate = '${date.day} ${_monthName(date.month)}, ${date.year}';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Flexible(child: Text(title, style: const TextStyle(fontSize: 16))),
-          Text(formattedDate, style: const TextStyle(color: Colors.grey)),
-        ],
-      ),
+      ],
     );
   }
 
   Widget _buildUpcomingEventsSection() {
-  return Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
@@ -439,10 +571,71 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  Widget _buildEventItem(Map<String, dynamic> event) {
+    final title = event['title'] ?? 'Untitled Event';
+
+    // Handle date formatting safely
+    DateTime? date;
+    if (event['date'] is Timestamp) {
+      date = (event['date'] as Timestamp).toDate();
+    }
+
+    final formattedDate = date != null
+        ? '${date.day} ${_monthName(date.month)}, ${date.year}'
+        : 'No date';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  event['location'] ?? 'No location',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade700,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            formattedDate,
+            style: const TextStyle(
+              color: Colors.grey,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _customChip(String label) {
     return Chip(
       label: Text(label),
-      backgroundColor: const Color.fromRGBO(244, 242, 230, 0.7),
+      backgroundColor: const Color.fromRGBO(200, 196, 180, 0.7),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide.none,
