@@ -1,8 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
-import '../services/firebase_service.dart'; 
-
+import '../services/firebase_service.dart';
 
 class PostPage extends StatefulWidget {
   const PostPage({super.key});
@@ -29,72 +30,86 @@ class _PostPageState extends State<PostPage> {
     }
   }
 
-  Future<void> _selectDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: now,
-      firstDate: now,
-      lastDate: DateTime(now.year + 2),
-    );
-    if (picked != null) {
-      setState(() {
-        _selectedDate = picked;
-      });
+  Future<String?> _uploadImageToServer(File imageFile) async {
+    try {
+      var request = http.MultipartRequest(
+          'POST', Uri.parse('http://10.21.19.245:3000/upload'));
+      request.files
+          .add(await http.MultipartFile.fromPath('image', imageFile.path));
+      var response = await request.send();
+
+      if (response.statusCode == 200) {
+        // The image was successfully uploaded to Google Drive
+        final responseBody = await response.stream.bytesToString();
+        final data = json.decode(responseBody);
+        return data[
+            'viewLink']; // Assuming the server sends back the Google Drive URL
+      } else {
+        print("Failed to upload image to server.");
+        return null;
+      }
+    } catch (e) {
+      print("Error uploading image: $e");
+      return null;
     }
   }
 
-void _submitForm() async {
-  if (_coverPhoto == null ||
-      _titleController.text.isEmpty ||
-      _orgController.text.isEmpty ||
-      _locationController.text.isEmpty ||
-      _selectedDate == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Please complete all fields')),
-    );
-    return;
+  void _submitForm() async {
+    if (_coverPhoto == null ||
+        _titleController.text.isEmpty ||
+        _orgController.text.isEmpty ||
+        _locationController.text.isEmpty ||
+        _selectedDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please complete all fields')),
+      );
+      return;
+    }
+
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Uploading... Please wait')),
+      );
+
+      // Upload the image to the server (Google Drive)
+      final imageUrl = await _uploadImageToServer(_coverPhoto!);
+      if (imageUrl == null) {
+        throw "Image upload failed";
+      }
+
+      debugPrint('Image uploaded: $imageUrl');
+
+      // Save the event details to Firestore (you can use Firebase SDK as usual)
+      await FirebaseService.saveEventToFirestore({
+        'title': _titleController.text.trim(),
+        'organization': _orgController.text.trim(),
+        'location': _locationController.text.trim(),
+        'date': _selectedDate,
+        'imageUrl': imageUrl,
+        'createdAt': DateTime.now(),
+      });
+      debugPrint('Event saved to Firestore');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Event posted successfully!')),
+      );
+
+      // Clear the form
+      setState(() {
+        _coverPhoto = null;
+        _titleController.clear();
+        _orgController.clear();
+        _locationController.clear();
+        _selectedDate = null;
+      });
+    } catch (e) {
+      debugPrint('❌ ERROR: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Failed to post event. Please try again.')),
+      );
+    }
   }
-
-  try {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Uploading... Please wait')),
-    );
-
-    final imageUrl = await FirebaseService.uploadImageToStorage(_coverPhoto!);
-    debugPrint('Image uploaded: $imageUrl');
-
-    await FirebaseService.saveEventToFirestore({
-      'title': _titleController.text.trim(),
-      'organization': _orgController.text.trim(),
-      'location': _locationController.text.trim(),
-      'date': _selectedDate,
-      'imageUrl': imageUrl,
-      'createdAt': DateTime.now(),
-    });
-    debugPrint('Event saved to Firestore');
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Event posted successfully!')),
-    );
-
-    setState(() {
-      _coverPhoto = null;
-      _titleController.clear();
-      _orgController.clear();
-      _locationController.clear();
-      _selectedDate = null;
-    });
-  } catch (e, stack) {
-    debugPrint('❌ ERROR: $e');
-    debugPrint('STACK TRACE: $stack');
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Failed to post event. Please try again.')),
-    );
-  }
-}
-
-
 
   Widget _buildLabel(String text) => Padding(
         padding: const EdgeInsets.only(top: 16, bottom: 6),
@@ -252,5 +267,19 @@ void _submitForm() async {
       ),
     );
   }
-}
 
+  Future<void> _selectDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: now,
+      lastDate: DateTime(now.year + 2),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
+  }
+}
