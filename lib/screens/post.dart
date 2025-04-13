@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import '../services/firebase_service.dart'; 
+
 
 class PostPage extends StatefulWidget {
   const PostPage({super.key});
@@ -42,20 +44,38 @@ class _PostPageState extends State<PostPage> {
     }
   }
 
-  void _submitForm() {
-    if (_coverPhoto == null ||
-        _titleController.text.isEmpty ||
-        _orgController.text.isEmpty ||
-        _locationController.text.isEmpty ||
-        _selectedDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please complete all fields')),
-      );
-      return;
-    }
+void _submitForm() async {
+  if (_coverPhoto == null ||
+      _titleController.text.isEmpty ||
+      _orgController.text.isEmpty ||
+      _locationController.text.isEmpty ||
+      _selectedDate == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please complete all fields')),
+    );
+    return;
+  }
+
+  try {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Uploading... Please wait')),
+    );
+
+    final imageUrl = await FirebaseService.uploadImageToStorage(_coverPhoto!);
+    debugPrint('Image uploaded: $imageUrl');
+
+    await FirebaseService.saveEventToFirestore({
+      'title': _titleController.text.trim(),
+      'organization': _orgController.text.trim(),
+      'location': _locationController.text.trim(),
+      'date': _selectedDate,
+      'imageUrl': imageUrl,
+      'createdAt': DateTime.now(),
+    });
+    debugPrint('Event saved to Firestore');
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Event posted!')),
+      const SnackBar(content: Text('Event posted successfully!')),
     );
 
     setState(() {
@@ -65,7 +85,16 @@ class _PostPageState extends State<PostPage> {
       _locationController.clear();
       _selectedDate = null;
     });
+  } catch (e, stack) {
+    debugPrint('❌ ERROR: $e');
+    debugPrint('STACK TRACE: $stack');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Failed to post event. Please try again.')),
+    );
   }
+}
+
+
 
   Widget _buildLabel(String text) => Padding(
         padding: const EdgeInsets.only(top: 16, bottom: 6),
