@@ -20,7 +20,7 @@ class HomePageState extends State<HomePage> {
   final List<Widget> _screens = [
     HomeContent(),
     SearchPage(),
-    const SizedBox.shrink(), // middle FAB button — skip
+    const SizedBox.shrink(),
     DiscoverPage(),
     ProfilePage(),
   ];
