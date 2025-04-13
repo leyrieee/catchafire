@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/location_service.dart';
 
 class DiscoverPage extends StatefulWidget {
@@ -36,24 +38,45 @@ class _DiscoverPageState extends State<DiscoverPage> {
   }
 
   Future<void> _initLocation() async {
-  try {
-    final pos = await _locationService.getCurrentPosition();
-    if (pos != null) {
-      print("Location retrieved: ${pos.latitude}, ${pos.longitude}");
-      setState(() {
-        _currentLocation = LatLng(pos.latitude, pos.longitude);
-      });
+    try {
+      final pos = await _locationService.getCurrentPosition();
+      if (pos != null) {
+        print("Location retrieved: ${pos.latitude}, ${pos.longitude}");
+        setState(() {
+          _currentLocation = LatLng(pos.latitude, pos.longitude);
+        });
 
-      await _locationService.saveLocation(pos);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Location updated and saved")),
-      );
+        // Save location to Firestore if the user is authenticated
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          await _saveLocationToFirestore(user.uid, pos.latitude, pos.longitude);
+        } else {
+          print('User is not authenticated.');
+        }
+
+        await _locationService.saveLocation(pos);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Location updated and saved")),
+        );
+      }
+    } catch (e) {
+      print("Error getting location: $e");
     }
-  } catch (e) {
-    print("Error getting location: $e");
   }
-}
 
+  Future<void> _saveLocationToFirestore(String userId, double latitude, double longitude) async {
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(userId).set({
+        'location': {
+          'latitude': latitude,
+          'longitude': longitude,
+        },
+      });
+      print('Location saved to Firestore');
+    } catch (e) {
+      print('Error saving location to Firestore: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -108,4 +131,3 @@ class _DiscoverPageState extends State<DiscoverPage> {
     );
   }
 }
-
