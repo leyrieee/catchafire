@@ -11,11 +11,13 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   Map<String, dynamic>? userData;
+  List<Map<String, dynamic>> userEvents = [];
 
   @override
   void initState() {
     super.initState();
     fetchUserInfo();
+    fetchUserEvents();
   }
 
   Future<void> fetchUserInfo() async {
@@ -29,6 +31,53 @@ class _ProfilePageState extends State<ProfilePage> {
         userData = doc.data();
       });
     }
+  }
+
+  Future<void> fetchUserEvents() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final querySnapshot = await FirebaseFirestore.instance
+        .collection('events')
+        .where('userId', isEqualTo: uid)
+        .orderBy('date', descending: true)
+        .get();
+
+    setState(() {
+      userEvents = querySnapshot.docs
+          .map((doc) => doc.data() as Map<String, dynamic>)
+          .toList();
+    });
+  }
+
+  void _showDeleteConfirmationDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Delete Account"),
+        content: const Text(
+            "Are you sure you want to delete your account? This action cannot be undone."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              final user = FirebaseAuth.instance.currentUser;
+              await user?.delete();
+              if (!mounted) return;
+              Navigator.of(context).popUntil((route) => route.isFirst);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Account deleted successfully")),
+              );
+            },
+            child: const Text("Delete"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -71,26 +120,46 @@ class _ProfilePageState extends State<ProfilePage> {
             backgroundImage: AssetImage('assets/profile_pic.jpg'),
           ),
           const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                userData?['fullName'] ?? 'Unknown User',
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'GT Ultra',
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  userData?['fullName'] ?? 'Unknown User',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'GT Ultra',
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Joined ${_formatJoinDate(userData?['createdAt'])}',
-                style: const TextStyle(
-                  color: Colors.grey,
-                  fontSize: 14,
-                  fontFamily: 'Inter',
+                const SizedBox(height: 4),
+                Text(
+                  'Joined ${_formatJoinDate(userData?['createdAt'])}',
+                  style: const TextStyle(
+                    color: Colors.grey,
+                    fontSize: 14,
+                    fontFamily: 'Inter',
+                  ),
                 ),
-              ),
+              ],
+            ),
+          ),
+          PopupMenuButton<String>(
+            onSelected: (value) async {
+              if (value == 'logout') {
+                await FirebaseAuth.instance.signOut();
+                if (!mounted) return;
+                Navigator.of(context).popUntil((route) => route.isFirst);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Logged out successfully")),
+                );
+              } else if (value == 'delete') {
+                _showDeleteConfirmationDialog();
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: 'logout', child: Text('Log Out')),
+              const PopupMenuItem(value: 'delete', child: Text('Delete Account')),
             ],
           ),
         ],
@@ -194,7 +263,7 @@ class _ProfilePageState extends State<ProfilePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Completed Events',
+          'My Events',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -202,14 +271,20 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ),
         const SizedBox(height: 12),
-        _buildEventItem('Community Garden Cleanup', 'April 15, 2025'),
-        _buildEventItem('Food Drive Volunteers', 'March 30, 2025'),
-        _buildEventItem('Elderly Care Assistance', 'March 10, 2025'),
+        ...userEvents.map((event) => _buildEventItem(event)).toList(),
       ],
     );
   }
 
-  Widget _buildEventItem(String title, String date) {
+  Widget _buildEventItem(Map<String, dynamic> event) {
+    final title = event['title'] ?? 'Untitled Event';
+    final date = event['date'] is Timestamp
+        ? (event['date'] as Timestamp).toDate()
+        : DateTime.now();
+
+    final formattedDate =
+        '${date.day} ${_monthName(date.month)}, ${date.year}';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -221,8 +296,8 @@ class _ProfilePageState extends State<ProfilePage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: const TextStyle(fontSize: 16)),
-          Text(date, style: const TextStyle(color: Colors.grey)),
+          Flexible(child: Text(title, style: const TextStyle(fontSize: 16))),
+          Text(formattedDate, style: const TextStyle(color: Colors.grey)),
         ],
       ),
     );
