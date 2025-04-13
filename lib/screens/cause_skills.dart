@@ -18,10 +18,12 @@ class CauseAndSkillsPageState extends State<CauseAndSkillsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color.fromRGBO(244, 242, 230, 1),
+      backgroundColor: const Color.fromRGBO(244, 242, 230, 1),
       appBar: AppBar(
-        title: const Text('Tell Us About You',
-            style: TextStyle(fontFamily: "Inter", fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Tell Us About You',
+          style: TextStyle(fontFamily: "Inter", fontWeight: FontWeight.bold),
+        ),
         backgroundColor: const Color.fromRGBO(41, 37, 37, 1),
         foregroundColor: const Color.fromRGBO(244, 242, 230, 1),
         elevation: 0,
@@ -94,7 +96,7 @@ class CauseAndSkillsPageState extends State<CauseAndSkillsPage> {
               ),
               const SizedBox(height: 30),
 
-              // Save & Continue Button
+              // Save & Continue Button with Validation
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -107,10 +109,22 @@ class CauseAndSkillsPageState extends State<CauseAndSkillsPage> {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   onPressed: () async {
-                    final uid = FirebaseAuth.instance.currentUser?.uid;
+                    // Validation: Ensure at least one cause and one skill are selected
+                    if (selectedCauses.isEmpty || selectedSkills.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                              'Please select at least one cause and one skill.'),
+                        ),
+                      );
+                      return;
+                    }
 
+                    // Get the current user's UID
+                    final uid = FirebaseAuth.instance.currentUser?.uid;
                     if (uid != null) {
                       try {
+                        // Update Firestore with the selected causes and skills
                         await FirebaseFirestore.instance
                             .collection('users')
                             .doc(uid)
@@ -119,6 +133,7 @@ class CauseAndSkillsPageState extends State<CauseAndSkillsPage> {
                           'skills': selectedSkills.toList(),
                         });
 
+                        // Navigate to HomePage
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
@@ -127,7 +142,8 @@ class CauseAndSkillsPageState extends State<CauseAndSkillsPage> {
                       } catch (e) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                              content: Text('Error saving selections: $e')),
+                              content: Text(
+                                  'Error saving selections: ${e.toString()}')),
                         );
                       }
                     } else {
@@ -165,32 +181,27 @@ class CauseAndSkillsPageState extends State<CauseAndSkillsPage> {
         child: Chip(
           label: Text(
             item,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 16, // Larger text size
-              fontWeight: FontWeight.bold, // Optional: bold text
+              fontWeight: FontWeight.bold, // Bold text
             ),
           ),
           backgroundColor: selectedItems.contains(item)
-              ? const Color.fromRGBO(
-                  41, 37, 37, 1) // Dark background when selected
-              : Color.fromRGBO(
-                  244, 242, 230, 0.7), // Transparent when not selected
+              ? const Color.fromRGBO(41, 37, 37, 1) // Dark when selected
+              : const Color.fromRGBO(244, 242, 230, 0.7), // Lighter when not
           labelStyle: TextStyle(
             color: selectedItems.contains(item)
                 ? Colors.white
-                : const Color.fromRGBO(
-                    41, 37, 37, 1), // White text when selected
+                : const Color.fromRGBO(41, 37, 37, 1),
           ),
-          padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12), // Increase padding for larger chips
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           side: BorderSide(
             color: selectedItems.contains(item)
-                ? Colors.white // Border color when selected
-                : const Color.fromRGBO(41, 37, 37, 1), // Regular border color
+                ? Colors.white
+                : const Color.fromRGBO(41, 37, 37, 1),
           ),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24), // More rounded edges
+            borderRadius: BorderRadius.circular(24),
           ),
         ),
       );
