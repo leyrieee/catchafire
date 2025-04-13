@@ -1,0 +1,54 @@
+name: catchafire
+description: "A new Flutter project."
+publish_to: "none"
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.6.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  google_maps_flutter: ^2.12.1
+  geolocator: ^13.0.4
+  
+  smooth_page_indicator: ^1.2.1
+
+  image_picker: ^1.1.2
+
+  firebase_core: ^3.13.0
+  firebase_auth: ^5.5.2
+  cloud_firestore: ^5.6.6
+  firebase_storage: ^12.4.5
+
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/fonts/
+    - assets/logo.png
+    - assets/onboarding1.png
+    - assets/onboarding2.png
+    - assets/onboarding3.png
+    - assets/onboarding4.png
+    - assets/community_garden.jpeg
+    - assets/teach_coding.jpeg
+    - assets/food_drive.jpeg
+    - assets/elderly_care.jpeg
+    - assets/design_jam.jpeg
+    - assets/tech_conference.jpeg
+
+
+  fonts:
+    - family: GT Ultra
+      fonts:
+        - asset: assets/fonts/GTUltra-Black.otf
