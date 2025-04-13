@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'package:catchafire/screens/discover.dart';
 import 'package:catchafire/screens/search.dart';
 import 'package:flutter/material.dart';

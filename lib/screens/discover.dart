@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print, use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -64,7 +66,8 @@ class _DiscoverPageState extends State<DiscoverPage> {
     }
   }
 
-  Future<void> _saveLocationToFirestore(String userId, double latitude, double longitude) async {
+  Future<void> _saveLocationToFirestore(
+      String userId, double latitude, double longitude) async {
     try {
       await FirebaseFirestore.instance.collection('users').doc(userId).set({
         'location': {

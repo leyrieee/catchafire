@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -209,14 +211,12 @@ class _ProfilePageState extends State<ProfilePage> {
                 // Then delete the account
                 await user.delete();
 
-                if (!mounted) return;
                 Navigator.of(context).pop(); // Close dialog
                 Navigator.of(context).popUntil((route) => route.isFirst);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text("Account deleted successfully")),
                 );
               } catch (e) {
-                if (!mounted) return;
                 Navigator.of(context).pop(); // Close dialog
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
