@@ -1,6 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -12,6 +15,10 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   Map<String, dynamic>? userData;
   List<Map<String, dynamic>> userEvents = [];
+  int totalEvents = 0;
+  int totalSkills = 0;
+  int totalCauses = 0;
+  File? _profileImage;
 
   @override
   void initState() {
@@ -29,6 +36,9 @@ class _ProfilePageState extends State<ProfilePage> {
     if (doc.exists) {
       setState(() {
         userData = doc.data();
+        totalSkills = (userData?['skills']?.length ?? 0);
+        totalEvents = (userData?['events']?.length ?? 0);
+        totalCauses = (userData?['causes']?.length ?? 0);
       });
     }
   }
@@ -48,6 +58,40 @@ class _ProfilePageState extends State<ProfilePage> {
           .map((doc) => doc.data() as Map<String, dynamic>)
           .toList();
     });
+  }
+
+  Future<void> _updateProfilePicture() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      setState(() {
+        _profileImage = File(pickedFile.path);
+      });
+
+      final user = FirebaseAuth.instance.currentUser;
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('profile_pictures/${user?.uid}.jpg');
+
+      try {
+        await storageRef.putFile(_profileImage!);
+        final url = await storageRef.getDownloadURL();
+
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user?.uid)
+            .update({'profilePicture': url});
+
+        setState(() {
+          userData?['profilePicture'] = url;
+        });
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Error updating profile picture")),
+        );
+      }
+    }
   }
 
   void _showDeleteConfirmationDialog() {
@@ -115,9 +159,28 @@ class _ProfilePageState extends State<ProfilePage> {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: Row(
         children: [
-          const CircleAvatar(
-            radius: 35,
-            backgroundImage: AssetImage('assets/profile_pic.jpg'),
+          Stack(
+            children: [
+              GestureDetector(
+                onTap: _updateProfilePicture,
+                child: CircleAvatar(
+                  radius: 35,
+                  backgroundImage: _profileImage != null
+                      ? FileImage(_profileImage!)
+                      : NetworkImage(userData?['profilePicture'] ??
+                          'https://www.example.com/default-avatar.jpg') as ImageProvider,
+                ),
+              ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: IconButton(
+                  icon: const Icon(Icons.add_a_photo),
+                  onPressed: _updateProfilePicture,
+                  color: Colors.blue,
+                ),
+              ),
+            ],
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -203,10 +266,10 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: const [
-          _StatColumn(label: 'Events', value: '12'),
-          _StatColumn(label: 'Hours', value: '48'),
-          _StatColumn(label: 'Skills', value: '5'),
+        children: [
+          _StatColumn(label: 'Events', value: '$totalEvents'),
+          _StatColumn(label: 'Skills', value: '$totalSkills'),
+          _StatColumn(label: 'Causes', value: '$totalCauses'),
         ],
       ),
     );
