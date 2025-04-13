@@ -21,6 +21,16 @@ class _PostPageState extends State<PostPage> {
   final _locationController = TextEditingController();
   DateTime? _selectedDate;
 
+  final List<String> _allSkills = [
+    'Graphic Design',
+    'Fundraising',
+    'Training',
+    'Event Planning',
+    'Communications'
+  ];
+
+  final List<String> _selectedSkills = [];
+
   Future<void> _pickImage(ImageSource source) async {
     final picked = await picker.pickImage(source: source);
     if (picked != null) {
@@ -39,11 +49,9 @@ class _PostPageState extends State<PostPage> {
       var response = await request.send();
 
       if (response.statusCode == 200) {
-        // The image was successfully uploaded to Google Drive
         final responseBody = await response.stream.bytesToString();
         final data = json.decode(responseBody);
-        return data[
-            'viewLink']; // Assuming the server sends back the Google Drive URL
+        return data['viewLink'];
       } else {
         print("Failed to upload image to server.");
         return null;
@@ -54,7 +62,9 @@ class _PostPageState extends State<PostPage> {
     }
   }
 
-  void _submitForm() async {
+  final String _googleMapsApiKey = 'AIzaSyDxjx9fqNNBvvIXs14PKx2mn4g3m3YqJUo';
+
+  Future<void> _submitForm() async {
     if (_coverPhoto == null ||
         _titleController.text.isEmpty ||
         _orgController.text.isEmpty ||
@@ -71,36 +81,38 @@ class _PostPageState extends State<PostPage> {
         const SnackBar(content: Text('Uploading... Please wait')),
       );
 
-      // Upload the image to the server (Google Drive)
       final imageUrl = await _uploadImageToServer(_coverPhoto!);
-      if (imageUrl == null) {
-        throw "Image upload failed";
-      }
+      if (imageUrl == null) throw "Image upload failed";
 
-      debugPrint('Image uploaded: $imageUrl');
+      final coords = await _getLatLngFromAddress(_locationController.text);
+      if (coords == null) throw "Location not found";
 
-      // Save the event details to Firestore (you can use Firebase SDK as usual)
+      final lat = coords['lat'];
+      final lng = coords['lng'];
+
       await FirebaseService.saveEventToFirestore({
         'title': _titleController.text.trim(),
         'organization': _orgController.text.trim(),
         'location': _locationController.text.trim(),
         'date': _selectedDate,
         'imageUrl': imageUrl,
+        'latitude': lat,
+        'longitude': lng,
+        'skills': _selectedSkills,
         'createdAt': DateTime.now(),
       });
-      debugPrint('Event saved to Firestore');
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Event posted successfully!')),
       );
 
-      // Clear the form
       setState(() {
         _coverPhoto = null;
         _titleController.clear();
         _orgController.clear();
         _locationController.clear();
         _selectedDate = null;
+        _selectedSkills.clear();
       });
     } catch (e) {
       debugPrint('❌ ERROR: $e');
@@ -111,14 +123,80 @@ class _PostPageState extends State<PostPage> {
     }
   }
 
+  Future<Map<String, double>?> _getLatLngFromAddress(String address) async {
+    final encodedAddress = Uri.encodeComponent(address);
+    final url =
+        'https://maps.googleapis.com/maps/api/geocode/json?address=$encodedAddress&key=$_googleMapsApiKey';
+
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'OK' && data['results'].isNotEmpty) {
+          final location = data['results'][0]['geometry']['location'];
+          return {
+            'lat': location['lat'],
+            'lng': location['lng'],
+          };
+        } else {
+          debugPrint('Geocoding failed: ${data['status']}');
+          return null;
+        }
+      } else {
+        debugPrint('Geocoding HTTP error: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('Geocoding error: $e');
+      return null;
+    }
+  }
+
+  void _toggleSkill(String skill) {
+    setState(() {
+      if (_selectedSkills.contains(skill)) {
+        _selectedSkills.remove(skill);
+      } else {
+        _selectedSkills.add(skill);
+      }
+    });
+  }
+
+  Widget _buildSkillChips() {
+    return Wrap(
+      spacing: 8.0,
+      runSpacing: 8.0,
+      children: _allSkills.map((skill) {
+        final isSelected = _selectedSkills.contains(skill);
+        return ChoiceChip(
+          label: Text(skill),
+          selected: isSelected,
+          onSelected: (_) => _toggleSkill(skill),
+          selectedColor: Colors.brown.shade200,
+          backgroundColor: Colors.grey.shade200,
+          labelStyle: TextStyle(
+            color: isSelected ? Colors.black87 : Colors.grey.shade800,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   Widget _buildLabel(String text) => Padding(
         padding: const EdgeInsets.only(top: 16, bottom: 6),
-        child: Text(text,
-            style: const TextStyle(
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-                color: Color.fromRGBO(41, 37, 37, 1))),
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontFamily: 'Inter',
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            color: Color.fromRGBO(41, 37, 37, 1),
+          ),
+        ),
       );
 
   InputDecoration _inputStyle(String hint) => InputDecoration(
@@ -240,6 +318,8 @@ class _PostPageState extends State<PostPage> {
                 ),
               ),
             ),
+            _buildLabel("Skills Needed"),
+            _buildSkillChips(),
             const SizedBox(height: 30),
             Center(
               child: ElevatedButton.icon(

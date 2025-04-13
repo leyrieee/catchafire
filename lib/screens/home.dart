@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'profile.dart';
 import 'event_details.dart';
 import 'post.dart';
+import 'package:intl/intl.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -89,57 +90,228 @@ class HomeContent extends StatelessWidget {
 
   HomeContent({super.key});
 
+  Future<List<String>> _getUserSkills() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final userDoc =
+        await FirebaseFirestore.instance.collection('users').doc(uid).get();
+
+    if (userDoc.exists && userDoc.data()!.containsKey('skills')) {
+      List<dynamic> skills = userDoc['skills'];
+      return skills.cast<String>();
+    }
+    return [];
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         _buildHeader(),
         Expanded(
-          child: ListView(
-            controller: _scrollController,
-            padding: const EdgeInsets.only(bottom: 80),
-            children: [
-              _buildWelcomeSection(),
-              _buildEventCard(
-                context,
-                image: 'assets/community_garden.jpeg',
-                title: 'Community Garden Cleanup',
-                organization: 'Green City Initiative',
-                location: 'Central Park, NY',
-                date: 'April 15, 2025',
-                skills: ['Gardening', 'Physical labor'],
-              ),
-              _buildEventCard(
-                context,
-                image: 'assets/teach_coding.jpeg',
-                title: 'Teach Coding to Kids',
-                organization: 'Tech for All',
-                location: 'Downtown Library',
-                date: 'April 18, 2025',
-                skills: ['Programming', 'Teaching'],
-              ),
-              _buildEventCard(
-                context,
-                image: 'assets/food_drive.jpeg',
-                title: 'Food Drive Volunteers',
-                organization: 'Food for Families',
-                location: 'Community Center',
-                date: 'April 22, 2025',
-                skills: ['Organization', 'Communication'],
-              ),
-              _buildEventCard(
-                context,
-                image: 'assets/elderly_care.jpeg',
-                title: 'Elderly Care Assistance',
-                organization: 'Golden Years Foundation',
-                location: 'Sunset Homes',
-                date: 'April 25, 2025',
-                skills: ['Healthcare', 'Compassion'],
-              ),
-            ],
+          child: FutureBuilder<List<String>>(
+            future: _getUserSkills(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final skills = snapshot.data!;
+              if (skills.isEmpty) {
+                return const Center(child: Text('No skills selected.'));
+              }
+
+              return StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('events')
+                    .where('skills', arrayContainsAny: skills)
+                    .snapshots(),
+                builder: (context, eventSnapshot) {
+                  if (eventSnapshot.connectionState ==
+                      ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  if (eventSnapshot.hasError) {
+                    return Center(child: Text('Error: ${eventSnapshot.error}'));
+                  }
+
+                  if (!eventSnapshot.hasData ||
+                      eventSnapshot.data!.docs.isEmpty) {
+                    return const Center(
+                        child: Text('No matching events found.'));
+                  }
+
+                  print("Fetched Events: ${eventSnapshot.data!.docs.length}");
+
+                  return ListView(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.only(bottom: 80),
+                    children: [
+                      _buildWelcomeSection(),
+                      ...eventSnapshot.data!.docs.map((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+
+                        return _buildEventCard(
+                          context,
+                          image: data['imageUrl'] ?? 'assets/default_event.jpg',
+                          title: data['title'] ?? 'No Title',
+                          organization: data['organization'] ?? 'Unknown Org',
+                          location: data['location'] ?? 'Unknown Location',
+                          date: data['date'] ?? '',
+                          skills: List<String>.from(data['skills'] ?? []),
+                          description: data['description'] ?? '',
+                          organizerPhone: data['organizerPhone'] ?? '',
+                        );
+                      }),
+                    ],
+                  );
+                },
+              );
+            },
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildEventCard(
+    BuildContext context, {
+    required String image,
+    required String title,
+    required String organization,
+    required String location,
+    required dynamic date, // Change date to dynamic
+    required List<String> skills,
+    required String description,
+    required String organizerPhone,
+  }) {
+    // Convert timestamp to string (if it's a Timestamp)
+    String formattedDate = '';
+    if (date is Timestamp) {
+      // Convert Timestamp to DateTime
+      DateTime dateTime = date.toDate();
+      // Format the DateTime into a string (e.g., 'MMM dd, yyyy')
+      formattedDate = DateFormat('MMM dd, yyyy').format(dateTime);
+    } else if (date is String) {
+      formattedDate = date; // If it's already a string, use it directly
+    }
+
+    // Check if the image is a URL or a local asset
+    Widget imageWidget;
+    if (image.startsWith('http') || image.startsWith('https')) {
+      // If it's a URL, use Image.network
+      imageWidget = Image.network(
+        image,
+        height: 180,
+        width: double.infinity,
+        fit: BoxFit.cover,
+      );
+    } else {
+      // If it's a local asset, use Image.asset
+      imageWidget = Image.asset(
+        image,
+        height: 180,
+        width: double.infinity,
+        fit: BoxFit.cover,
+      );
+    }
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => EventDetailPage(
+              eventTitle: title,
+              eventDate: formattedDate, // Pass the formatted date
+              eventLocation: location,
+              eventDescription: description,
+              organizerPhone: organizerPhone,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 12,
+              offset: Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(20)),
+              child: imageWidget, // Use the dynamically chosen image widget
+            ),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Color.fromRGBO(41, 37, 37, 1),
+                borderRadius:
+                    BorderRadius.vertical(bottom: Radius.circular(20)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: const TextStyle(
+                          fontSize: 18,
+                          color: Color.fromRGBO(244, 242, 230, 1),
+                          fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 4),
+                  Text(organization,
+                      style: const TextStyle(
+                          color: Color.fromRGBO(244, 242, 230, 1),
+                          fontSize: 14)),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on,
+                          size: 16, color: Color.fromRGBO(244, 242, 230, 1)),
+                      const SizedBox(width: 4),
+                      Text(location,
+                          style: const TextStyle(
+                              color: Color.fromRGBO(244, 242, 230, 1))),
+                      const SizedBox(width: 16),
+                      const Icon(Icons.calendar_today,
+                          size: 16, color: Color.fromRGBO(244, 242, 230, 1)),
+                      const SizedBox(width: 4),
+                      Text(formattedDate, // Use the formatted date
+                          style: const TextStyle(
+                              color: Color.fromRGBO(244, 242, 230, 1))),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: skills
+                        .map((skill) => Chip(
+                              label: Text(skill),
+                              backgroundColor:
+                                  const Color.fromRGBO(244, 242, 230, 1),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                                side: BorderSide.none,
+                              ),
+                            ))
+                        .toList(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -189,7 +361,6 @@ class HomeContent extends StatelessWidget {
                     greeting = 'Hello, $firstName 👋';
                   }
                 } catch (e) {
-                  // If there's an error reading the field, use the default greeting
                   greeting = 'Hello 👋';
                 }
               }
@@ -197,126 +368,21 @@ class HomeContent extends StatelessWidget {
               return Text(
                 greeting,
                 style: const TextStyle(
-                    fontFamily: 'GT Ultra',
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold),
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Color.fromRGBO(41, 37, 37, 1)),
               );
             },
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           const Text(
-            'Volunteer opportunities, handpicked for you!',
+            'Find events and opportunities to contribute to causes you care about.',
             style: TextStyle(
-                fontFamily: 'Inter', fontSize: 16, color: Colors.grey),
+                fontSize: 14,
+                fontWeight: FontWeight.normal,
+                color: Color.fromRGBO(41, 37, 37, 1)),
           ),
-          const SizedBox(height: 12),
         ],
-      ),
-    );
-  }
-
-  Widget _buildEventCard(
-    BuildContext context, {
-    required String image,
-    required String title,
-    required String organization,
-    required String location,
-    required String date,
-    required List<String> skills,
-  }) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (context) => EventDetailPage(
-  eventTitle: title,
-  eventDate: 'April 20, 2025', // Example, replace with real data
-  eventLocation: 'Accra Digital Centre', // Example
-  eventDescription: 'A great event near you.', // Example
-  organizerPhone: '+233501234567', // Replace with the actual phone number
-)),
-          
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: const [
-            BoxShadow(
-                color: Colors.black12, blurRadius: 12, offset: Offset(0, 6)),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(20)),
-              child: Image.asset(image,
-                  height: 180, width: double.infinity, fit: BoxFit.cover),
-            ),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                color: Color.fromRGBO(41, 37, 37, 1),
-                borderRadius:
-                    BorderRadius.vertical(bottom: Radius.circular(20)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: const TextStyle(
-                          fontSize: 18,
-                          color: Color.fromRGBO(244, 242, 230, 1),
-                          fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 4),
-                  Text(organization,
-                      style: const TextStyle(
-                          color: Color.fromRGBO(244, 242, 230, 1),
-                          fontSize: 14)),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      const Icon(Icons.location_on,
-                          size: 16, color: Color.fromRGBO(244, 242, 230, 1)),
-                      const SizedBox(width: 4),
-                      Text(location,
-                          style: const TextStyle(
-                              color: Color.fromRGBO(244, 242, 230, 1))),
-                      const SizedBox(width: 16),
-                      const Icon(Icons.calendar_today,
-                          size: 16, color: Color.fromRGBO(244, 242, 230, 1)),
-                      const SizedBox(width: 4),
-                      Text(date,
-                          style: const TextStyle(
-                              color: Color.fromRGBO(244, 242, 230, 1))),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: skills
-                        .map((skill) => Chip(
-                              label: Text(skill),
-                              backgroundColor:
-                                  const Color.fromRGBO(244, 242, 230, 1),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                                side: BorderSide.none,
-                              ),
-                            ))
-                        .toList(),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
