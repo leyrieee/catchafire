@@ -1,6 +1,8 @@
 import 'package:catchafire/screens/discover.dart';
 import 'package:catchafire/screens/search.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'profile.dart';
 import 'event_details.dart';
 import 'post.dart';
@@ -160,25 +162,54 @@ class HomeContent extends StatelessWidget {
   }
 
   Widget _buildWelcomeSection() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Hello, Maya 👋',
-            style: TextStyle(
-                fontFamily: 'GT Ultra',
-                fontSize: 26,
-                fontWeight: FontWeight.bold),
+          StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('users')
+                .doc(FirebaseAuth.instance.currentUser?.uid)
+                .snapshots(),
+            builder: (context, snapshot) {
+              String greeting = 'Hello 👋';
+
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                greeting = 'Hello 👋';
+              } else if (snapshot.hasData && snapshot.data != null) {
+                try {
+                  // Get the full name from Firestore
+                  String fullName = snapshot.data!.get('fullName') ?? '';
+
+                  // Extract the first name (everything before the first space)
+                  String firstName = fullName.split(' ').first;
+
+                  if (firstName.isNotEmpty) {
+                    greeting = 'Hello, $firstName 👋';
+                  }
+                } catch (e) {
+                  // If there's an error reading the field, use the default greeting
+                  greeting = 'Hello 👋';
+                }
+              }
+
+              return Text(
+                greeting,
+                style: const TextStyle(
+                    fontFamily: 'GT Ultra',
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold),
+              );
+            },
           ),
-          SizedBox(height: 6),
-          Text(
+          const SizedBox(height: 6),
+          const Text(
             'Volunteer opportunities, handpicked for you!',
             style: TextStyle(
                 fontFamily: 'Inter', fontSize: 16, color: Colors.grey),
           ),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
         ],
       ),
     );
