@@ -1,3 +1,4 @@
+// Login done, should work with Firebase Authentication
 import "package:flutter/material.dart";
 import '../services/auth_service.dart';
 import 'signup.dart';
@@ -115,16 +116,6 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 10),
                   buildTextField('Password',
                       obscureText: true, controller: passwordController),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {}, // define later
-                      child: const Text(
-                        'Forgot Password?',
-                        style: TextStyle(color: Colors.black54),
-                      ),
-                    ),
-                  ),
                   const SizedBox(height: 10),
                   buildPrimaryButton('Login', _login),
                   const Spacer(),

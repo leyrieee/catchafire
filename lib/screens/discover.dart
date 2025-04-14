@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/location_service.dart';
+import 'event_details.dart';
 
 class DiscoverPage extends StatefulWidget {
   const DiscoverPage({super.key});
@@ -18,42 +19,30 @@ class _DiscoverPageState extends State<DiscoverPage> {
   LatLng? _currentLocation;
   final _locationService = LocationService();
 
-  final List<Map<String, dynamic>> _events = [
-    {
-      'title': 'Tech for Good Conference',
-      'position': LatLng(5.5600, -0.2050),
-    },
-    {
-      'title': 'Community Design Jam',
-      'position': LatLng(6.6900, -1.6300),
-    },
-    {
-      'title': 'Green Ghana Cleanup',
-      'position': LatLng(5.6500, -0.1600),
-    },
-  ];
+  List<Map<String, dynamic>> _eventsFromDB = [];
 
   @override
   void initState() {
     super.initState();
-    _initLocation();
+    _initPage();
+  }
+
+  Future<void> _initPage() async {
+    await _initLocation();
+    await _loadEventsFromFirestore();
   }
 
   Future<void> _initLocation() async {
     try {
       final pos = await _locationService.getCurrentPosition();
       if (pos != null) {
-        print("Location retrieved: ${pos.latitude}, ${pos.longitude}");
         setState(() {
           _currentLocation = LatLng(pos.latitude, pos.longitude);
         });
 
-        // Save location to Firestore if the user is authenticated
         final user = FirebaseAuth.instance.currentUser;
         if (user != null) {
           await _saveLocationToFirestore(user.uid, pos.latitude, pos.longitude);
-        } else {
-          print('User is not authenticated.');
         }
 
         await _locationService.saveLocation(pos);
@@ -75,9 +64,36 @@ class _DiscoverPageState extends State<DiscoverPage> {
           'longitude': longitude,
         },
       });
-      print('Location saved to Firestore');
     } catch (e) {
       print('Error saving location to Firestore: $e');
+    }
+  }
+
+  Future<void> _loadEventsFromFirestore() async {
+    try {
+      final snapshot =
+          await FirebaseFirestore.instance.collection('events').get();
+      final events = snapshot.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'id': doc.id,
+          'title': data['title'],
+          'latitude': data['latitude'],
+          'longitude': data['longitude'],
+          'organization': data['organization'],
+          'date': data['date'],
+          'skills': data['skills'],
+          'location': data['location'],
+          'description': data['description'],
+          'organizerPhone': data['organizerPhone'],
+        };
+      }).toList();
+
+      setState(() {
+        _eventsFromDB = events;
+      });
+    } catch (e) {
+      print('Error fetching events: $e');
     }
   }
 
@@ -119,18 +135,69 @@ class _DiscoverPageState extends State<DiscoverPage> {
                         icon: BitmapDescriptor.defaultMarkerWithHue(
                             BitmapDescriptor.hueAzure),
                       ),
-                      ..._events.map(
-                        (event) => Marker(
-                          markerId: MarkerId(event['title']),
-                          position: event['position'],
-                          infoWindow: InfoWindow(title: event['title']),
-                        ),
-                      ),
+                      ..._eventsFromDB.map((event) {
+                        return Marker(
+                          markerId: MarkerId(event['id']),
+                          position:
+                              LatLng(event['latitude'], event['longitude']),
+                          infoWindow: InfoWindow(
+                            title: event['title'],
+                            onTap: () {
+                              _showEventDetailsSheet(event);
+                            },
+                          ),
+                        );
+                      }),
                     },
                   ),
                 ),
               ],
             ),
+    );
+  }
+
+  void _showEventDetailsSheet(Map<String, dynamic> event) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                event['title'],
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              Text('Hosted by: ${event['organization']}'),
+              Text('Location: ${event['location']}'),
+              Text('Date: ${event['date']}'),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context); // Close bottom sheet
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => EventDetailPage(
+                        eventId: event['id'],
+                        eventTitle: event['title'],
+                        eventDate: event['date'],
+                        eventLocation: event['location'],
+                        eventDescription: event['description'],
+                        organizerPhone: event['organizerPhone'],
+                      ),
+                    ),
+                  );
+                },
+                child: const Text("View Details"),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -1,3 +1,7 @@
+// Works as expected
+// Except phone number, does not check for correctness
+// Check in future? unsure
+
 import 'package:catchafire/services/firestore_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -58,21 +62,22 @@ class _SignUpPageState extends State<SignUpPage> {
       return;
     }
 
-    // Validate password length
-    if (_passwordController.text.length < 6) {
-      if (!mounted) return;
-      setState(() {
-        _errorMessage = 'Password must be at least 6 characters long';
-        _isLoading = false;
-      });
-      return;
-    }
-
     // Validate passwords match
     if (_passwordController.text != _confirmPasswordController.text) {
       if (!mounted) return;
       setState(() {
         _errorMessage = 'Passwords do not match';
+        _isLoading = false;
+      });
+      return;
+    }
+
+    // Validate password strength
+    if (!_isStrongPassword(_passwordController.text)) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage =
+            'Password must be at least 8 characters long, include 1 uppercase and 1 lowercase letter, a number, and a special character.';
         _isLoading = false;
       });
       return;
@@ -253,6 +258,21 @@ class _SignUpPageState extends State<SignUpPage> {
         ),
       ),
     );
+  }
+
+  bool _isStrongPassword(String password) {
+    final hasUppercase = password.contains(RegExp(r'[A-Z]'));
+    final hasLowercase = password.contains(RegExp(r'[a-z]'));
+    final hasDigit = password.contains(RegExp(r'\d'));
+    final hasSpecialChar =
+        password.contains(RegExp(r'[!@#\$%^&*(),.?":{}|<>]'));
+    final hasMinLength = password.length >= 8;
+
+    return hasUppercase &&
+        hasLowercase &&
+        hasDigit &&
+        hasSpecialChar &&
+        hasMinLength;
   }
 
   Widget buildTextField(String hint,

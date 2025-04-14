@@ -1,3 +1,4 @@
+// Complete, works as intended
 import 'package:flutter/material.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'signup.dart';
@@ -81,6 +82,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       () {
                         // Navigate to sign up
                         Navigator.push(
+                          // or to use Navigator.pushReplacement?? idk
                           context,
                           MaterialPageRoute(
                               builder: (context) => const SignUpPage()),

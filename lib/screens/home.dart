@@ -163,6 +163,7 @@ class HomeContent extends StatelessWidget {
                           skills: List<String>.from(data['skills'] ?? []),
                           description: data['description'] ?? '',
                           organizerPhone: data['organizerPhone'] ?? '',
+                          eventId: doc.id,
                         );
                       }),
                     ],
@@ -178,6 +179,7 @@ class HomeContent extends StatelessWidget {
 
   Widget _buildEventCard(
     BuildContext context, {
+    required String eventId,
     required String image,
     required String title,
     required String organization,
@@ -224,6 +226,7 @@ class HomeContent extends StatelessWidget {
           context,
           MaterialPageRoute(
             builder: (context) => EventDetailPage(
+              eventId: eventId,
               eventTitle: title,
               eventDate: formattedDate, // Pass the formatted date
               eventLocation: location,

@@ -1,3 +1,5 @@
+// Complete, works as intended.
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -65,6 +67,7 @@ class _SplashScreenState extends State<SplashScreen>
     }
   }
 
+  // correct navigation practice, don't go back to previous page
   void _navigateTo(Widget screen) {
     Navigator.pushReplacement(
       context,
