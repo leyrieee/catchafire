@@ -52,12 +52,6 @@ flutter:
     - assets/onboarding2.png
     - assets/onboarding3.png
     - assets/onboarding4.png
-    - assets/community_garden.jpeg
-    - assets/teach_coding.jpeg
-    - assets/food_drive.jpeg
-    - assets/elderly_care.jpeg
-    - assets/design_jam.jpeg
-    - assets/tech_conference.jpeg
 
 
   fonts:

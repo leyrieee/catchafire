@@ -68,7 +68,6 @@ class _SearchPageState extends State<SearchPage> {
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Search Field
             TextField(
@@ -85,16 +84,8 @@ class _SearchPageState extends State<SearchPage> {
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
-              'Recommended Events',
-              style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                  fontFamily: "GT Ultra"),
-            ),
-            const SizedBox(height: 12),
 
-            // Event Results
+            // Search Results
             Expanded(
               child: filteredEvents.isEmpty
                   ? const Center(child: Text('No events found.'))
@@ -113,8 +104,7 @@ class _SearchPageState extends State<SearchPage> {
                           skills: List<String>.from(event['skills'] ?? []),
                           description: event['description'] ?? '',
                           organizerPhone: event['organizerPhone'] ?? '',
-                          eventId:
-                              event['id'], // Use event['id'] instead of doc.id
+                          eventId: event['id'],
                         );
                       },
                     ),
@@ -132,26 +122,21 @@ class _SearchPageState extends State<SearchPage> {
     required String title,
     required String organization,
     required String location,
-    required dynamic date, // Change date to dynamic
+    required dynamic date,
     required List<String> skills,
     required String description,
     required String organizerPhone,
   }) {
-    // Convert timestamp to string (if it's a Timestamp)
     String formattedDate = '';
     if (date is Timestamp) {
-      // Convert Timestamp to DateTime
       DateTime dateTime = date.toDate();
-      // Format the DateTime into a string (e.g., 'MMM dd, yyyy')
       formattedDate = DateFormat('MMM dd, yyyy').format(dateTime);
     } else if (date is String) {
-      formattedDate = date; // If it's already a string, use it directly
+      formattedDate = date;
     }
 
-    // Check if the image is a Google Drive URL and convert to a direct link
     Widget imageWidget;
     if (image.startsWith('https://drive.google.com/')) {
-      // Extract the Google Drive file ID
       final regex = RegExp(r'\/d\/([a-zA-Z0-9-_]+)\/');
       final match = regex.firstMatch(image);
 
@@ -165,7 +150,6 @@ class _SearchPageState extends State<SearchPage> {
           fit: BoxFit.cover,
         );
       } else {
-        // If the URL doesn't match the expected format, use the default image
         imageWidget = Image.asset(
           'assets/default_event.jpg',
           height: 180,
@@ -174,7 +158,6 @@ class _SearchPageState extends State<SearchPage> {
         );
       }
     } else if (image.startsWith('http') || image.startsWith('https')) {
-      // If it's a general URL, use Image.network
       imageWidget = Image.network(
         image,
         height: 180,
@@ -182,7 +165,6 @@ class _SearchPageState extends State<SearchPage> {
         fit: BoxFit.cover,
       );
     } else {
-      // If it's a local asset, use Image.asset
       imageWidget = Image.asset(
         image,
         height: 180,
@@ -199,7 +181,7 @@ class _SearchPageState extends State<SearchPage> {
             builder: (context) => EventDetailPage(
               eventId: eventId,
               eventTitle: title,
-              eventDate: formattedDate, // Pass the formatted date
+              eventDate: formattedDate,
               eventLocation: location,
               eventDescription: description,
               organizerPhone: organizerPhone,
@@ -226,7 +208,7 @@ class _SearchPageState extends State<SearchPage> {
             ClipRRect(
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(20)),
-              child: imageWidget, // Use the dynamically chosen image widget
+              child: imageWidget,
             ),
             Container(
               padding: const EdgeInsets.all(16),
@@ -261,7 +243,7 @@ class _SearchPageState extends State<SearchPage> {
                       const Icon(Icons.calendar_today,
                           size: 16, color: Color.fromRGBO(244, 242, 230, 1)),
                       const SizedBox(width: 4),
-                      Text(formattedDate, // Use the formatted date
+                      Text(formattedDate,
                           style: const TextStyle(
                               color: Color.fromRGBO(244, 242, 230, 1))),
                     ],

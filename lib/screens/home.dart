@@ -184,26 +184,42 @@ class HomeContent extends StatelessWidget {
     required String title,
     required String organization,
     required String location,
-    required dynamic date, // Change date to dynamic
+    required dynamic date,
     required List<String> skills,
     required String description,
     required String organizerPhone,
   }) {
-    // Convert timestamp to string (if it's a Timestamp)
     String formattedDate = '';
     if (date is Timestamp) {
-      // Convert Timestamp to DateTime
       DateTime dateTime = date.toDate();
-      // Format the DateTime into a string (e.g., 'MMM dd, yyyy')
       formattedDate = DateFormat('MMM dd, yyyy').format(dateTime);
     } else if (date is String) {
-      formattedDate = date; // If it's already a string, use it directly
+      formattedDate = date;
     }
 
-    // Check if the image is a URL or a local asset
     Widget imageWidget;
-    if (image.startsWith('http') || image.startsWith('https')) {
-      // If it's a URL, use Image.network
+    if (image.startsWith('https://drive.google.com/')) {
+      final regex = RegExp(r'\/d\/([a-zA-Z0-9-_]+)\/');
+      final match = regex.firstMatch(image);
+
+      if (match != null) {
+        final fileId = match.group(1);
+        final directUrl = 'https://drive.google.com/uc?export=view&id=$fileId';
+        imageWidget = Image.network(
+          directUrl,
+          height: 180,
+          width: double.infinity,
+          fit: BoxFit.cover,
+        );
+      } else {
+        imageWidget = Image.asset(
+          'assets/default_event.jpg',
+          height: 180,
+          width: double.infinity,
+          fit: BoxFit.cover,
+        );
+      }
+    } else if (image.startsWith('http') || image.startsWith('https')) {
       imageWidget = Image.network(
         image,
         height: 180,
@@ -211,7 +227,6 @@ class HomeContent extends StatelessWidget {
         fit: BoxFit.cover,
       );
     } else {
-      // If it's a local asset, use Image.asset
       imageWidget = Image.asset(
         image,
         height: 180,
@@ -228,7 +243,7 @@ class HomeContent extends StatelessWidget {
             builder: (context) => EventDetailPage(
               eventId: eventId,
               eventTitle: title,
-              eventDate: formattedDate, // Pass the formatted date
+              eventDate: formattedDate,
               eventLocation: location,
               eventDescription: description,
               organizerPhone: organizerPhone,
@@ -255,7 +270,7 @@ class HomeContent extends StatelessWidget {
             ClipRRect(
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(20)),
-              child: imageWidget, // Use the dynamically chosen image widget
+              child: imageWidget,
             ),
             Container(
               padding: const EdgeInsets.all(16),
@@ -290,7 +305,7 @@ class HomeContent extends StatelessWidget {
                       const Icon(Icons.calendar_today,
                           size: 16, color: Color.fromRGBO(244, 242, 230, 1)),
                       const SizedBox(width: 4),
-                      Text(formattedDate, // Use the formatted date
+                      Text(formattedDate,
                           style: const TextStyle(
                               color: Color.fromRGBO(244, 242, 230, 1))),
                     ],
