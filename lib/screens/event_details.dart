@@ -8,7 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class EventDetailPage extends StatefulWidget {
   final String eventId;
   final String eventTitle;
-  final String eventDate;
+  final dynamic eventDate;
   final String eventLocation;
   final String eventDescription;
   final String organizerPhone;
@@ -87,6 +87,17 @@ class EventDetailPageState extends State<EventDetailPage> {
     }
   }
 
+  String getFormattedDate() {
+    if (eventDate is DateTime) {
+      final DateTime date = eventDate;
+      return "${date.day}/${date.month}/${date.year} • ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}";
+    } else if (eventDate is String) {
+      return eventDate;
+    } else {
+      return "Date not available";
+    }
+  }
+
   Future<void> _callOrganizer() async {
     final Uri callUri = Uri(scheme: 'tel', path: widget.organizerPhone);
     if (await canLaunchUrl(callUri)) {
@@ -140,7 +151,8 @@ class EventDetailPageState extends State<EventDetailPage> {
                 children: [
                   const Icon(Icons.calendar_today, size: 18),
                   const SizedBox(width: 6),
-                  Text(widget.eventDate, style: const TextStyle(fontSize: 16)),
+                  Text(getFormattedDate(),
+                      style: const TextStyle(fontSize: 16)),
                 ],
               ),
               const SizedBox(height: 8),
