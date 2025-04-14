@@ -24,7 +24,12 @@ class _SearchPageState extends State<SearchPage> {
   Future<void> fetchEvents() async {
     final querySnapshot =
         await FirebaseFirestore.instance.collection('events').get();
-    final events = querySnapshot.docs.map((doc) => doc.data()).toList();
+    final events = querySnapshot.docs.map((doc) {
+      return {
+        ...doc.data(),
+        'id': doc.id,
+      };
+    }).toList();
 
     setState(() {
       allEvents = events;
@@ -108,6 +113,8 @@ class _SearchPageState extends State<SearchPage> {
                           skills: List<String>.from(event['skills'] ?? []),
                           description: event['description'] ?? '',
                           organizerPhone: event['organizerPhone'] ?? '',
+                          eventId:
+                              event['id'], // Use event['id'] instead of doc.id
                         );
                       },
                     ),
@@ -120,6 +127,7 @@ class _SearchPageState extends State<SearchPage> {
 
   Widget _buildEventCard(
     BuildContext context, {
+    required String eventId,
     required String image,
     required String title,
     required String organization,
@@ -189,6 +197,7 @@ class _SearchPageState extends State<SearchPage> {
           context,
           MaterialPageRoute(
             builder: (context) => EventDetailPage(
+              eventId: eventId,
               eventTitle: title,
               eventDate: formattedDate, // Pass the formatted date
               eventLocation: location,
