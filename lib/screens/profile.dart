@@ -5,6 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'event_details.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -58,7 +59,11 @@ class _ProfilePageState extends State<ProfilePage> {
         .get();
 
     setState(() {
-      rsvpEvents = snapshot.docs.map((doc) => doc.data()).toList();
+      rsvpEvents = snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id; // Store the document ID
+        return data;
+      }).toList();
     });
   }
 
@@ -73,7 +78,11 @@ class _ProfilePageState extends State<ProfilePage> {
         .get();
 
     setState(() {
-      userEvents = querySnapshot.docs.map((doc) => doc.data()).toList();
+      userEvents = querySnapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id; // Store the document ID
+        return data;
+      }).toList();
     });
   }
 
@@ -139,6 +148,38 @@ class _ProfilePageState extends State<ProfilePage> {
         ],
       ),
     );
+  }
+
+  void _navigateToEventDetails(Map<String, dynamic> event) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EventDetailPage(
+          eventId: event['id'],
+          eventTitle: event['title'] ?? 'Untitled Event',
+          eventDate: _formatEventDate(event['date']),
+          eventLocation: event['location'] ?? 'No location',
+          eventDescription: event['description'] ?? 'No description',
+          organizerPhone: event['organizerPhone'] ?? '',
+          imageUrl: event['imageUrl'],
+          skills: event['skills'] != null
+              ? List<String>.from(event['skills'])
+              : null,
+          onRsvpComplete: () {
+            // This will be called when RSVP is completed
+            fetchRsvpEvents();
+          },
+        ),
+      ),
+    );
+  }
+
+  String _formatEventDate(dynamic date) {
+    if (date is Timestamp) {
+      final dateTime = date.toDate();
+      return '${dateTime.day} ${_monthName(dateTime.month)}, ${dateTime.year}';
+    }
+    return 'No date';
   }
 
   @override
@@ -370,14 +411,18 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               )
             : Column(
-                children:
-                    userEvents.map((event) => _buildEventItem(event)).toList(),
+                children: userEvents
+                    .map((event) => _buildEventItem(
+                          event,
+                          onTap: () => _navigateToEventDetails(event),
+                        ))
+                    .toList(),
               ),
       ],
     );
   }
 
-  Widget _buildEventItem(Map<String, dynamic> event) {
+  Widget _buildEventItem(Map<String, dynamic> event, {VoidCallback? onTap}) {
     final title = event['title'] ?? 'Untitled Event';
     final date = event['date'] is Timestamp
         ? (event['date'] as Timestamp).toDate()
@@ -385,20 +430,23 @@ class _ProfilePageState extends State<ProfilePage> {
 
     final formattedDate = '${date.day} ${_monthName(date.month)}, ${date.year}';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Flexible(child: Text(title, style: const TextStyle(fontSize: 16))),
-          Text(formattedDate, style: const TextStyle(color: Colors.grey)),
-        ],
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Flexible(child: Text(title, style: const TextStyle(fontSize: 16))),
+            Text(formattedDate, style: const TextStyle(color: Colors.grey)),
+          ],
+        ),
       ),
     );
   }
@@ -421,7 +469,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 padding: const EdgeInsets.symmetric(vertical: 20),
                 alignment: Alignment.center,
                 child: const Text(
-                  'No upcoming events.',
+                  'You have not RSVP\'d to any upcoming events.',
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.grey,
@@ -431,8 +479,12 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               )
             : Column(
-                children:
-                    rsvpEvents.map((event) => _buildEventItem(event)).toList(),
+                children: rsvpEvents
+                    .map((event) => _buildEventItem(
+                          event,
+                          onTap: () => _navigateToEventDetails(event),
+                        ))
+                    .toList(),
               ),
       ],
     );
@@ -441,15 +493,12 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _customChip(String label) {
     return Chip(
       label: Text(label),
-      backgroundColor: const Color.fromRGBO(244, 242, 230, 0.7),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide.none,
-      ),
+      backgroundColor: const Color.fromRGBO(41, 37, 37, 1),
       labelStyle: const TextStyle(
+        color: Colors.white,
         fontSize: 14,
-        fontWeight: FontWeight.w500,
       ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
     );
   }
 }
@@ -458,28 +507,29 @@ class _StatColumn extends StatelessWidget {
   final String label;
   final String value;
 
-  const _StatColumn({required this.label, required this.value});
+  const _StatColumn({
+    required this.label,
+    required this.value,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Color.fromRGBO(244, 242, 230, 1),
-          ),
-        ),
+        Text(value,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              fontFamily: 'Inter',
+            )),
         const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.grey,
-            fontSize: 14,
-          ),
-        ),
+        Text(label,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.white,
+              fontFamily: 'Inter',
+            )),
       ],
     );
   }

@@ -58,14 +58,30 @@ class _DiscoverPageState extends State<DiscoverPage> {
   Future<void> _saveLocationToFirestore(
       String userId, double latitude, double longitude) async {
     try {
-      await FirebaseFirestore.instance.collection('users').doc(userId).set({
+      // Using update() instead of set() to only update the location field
+      // This preserves all other fields in the user document
+      await FirebaseFirestore.instance.collection('users').doc(userId).update({
         'location': {
           'latitude': latitude,
           'longitude': longitude,
+          'lastUpdated': FieldValue
+              .serverTimestamp(), // Optional: track when location was updated
         },
       });
     } catch (e) {
-      print('Error saving location to Firestore: $e');
+      // If the document doesn't exist yet (first-time users), create it
+      if (e is FirebaseException && e.code == 'not-found') {
+        await FirebaseFirestore.instance.collection('users').doc(userId).set({
+          'location': {
+            'latitude': latitude,
+            'longitude': longitude,
+            'lastUpdated': FieldValue.serverTimestamp(),
+          },
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      } else {
+        print('Error saving location to Firestore: $e');
+      }
     }
   }
 

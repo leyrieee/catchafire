@@ -1,9 +1,11 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class EventDetailPage extends StatelessWidget {
+class EventDetailPage extends StatefulWidget {
   final String eventId;
   final String eventTitle;
   final String eventDate;
@@ -12,6 +14,7 @@ class EventDetailPage extends StatelessWidget {
   final String organizerPhone;
   final String? imageUrl;
   final List<String>? skills;
+  final Function? onRsvpComplete; // New callback for when RSVP is completed
 
   const EventDetailPage({
     super.key,
@@ -23,8 +26,14 @@ class EventDetailPage extends StatelessWidget {
     required this.organizerPhone,
     this.imageUrl,
     this.skills,
+    this.onRsvpComplete, // Added parameter
   });
 
+  @override
+  EventDetailPageState createState() => EventDetailPageState();
+}
+
+class EventDetailPageState extends State<EventDetailPage> {
   void _rsvp(BuildContext context, String eventId) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
@@ -38,6 +47,12 @@ class EventDetailPage extends StatelessWidget {
         'rsvps': FieldValue.arrayUnion([uid])
       });
 
+      // Optionally update the user's RSVPed events (if you're tracking it here)
+      final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+      await userRef.update({
+        'rsvps': FieldValue.arrayUnion([eventId])
+      });
+
       // Show confirmation dialog
       showDialog(
         context: context,
@@ -47,11 +62,17 @@ class EventDetailPage extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(context);
-                // Optionally trigger a refresh in ProfilePage if needed
+                Navigator.pop(context); // Close dialog
+
+                // Call the callback function if it exists
+                if (widget.onRsvpComplete != null) {
+                  widget.onRsvpComplete!();
+                }
+
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                      content: Text("Added to your Upcoming Events.")),
+                    content: Text("Added to your Upcoming Events."),
+                  ),
                 );
               },
               child: const Text("OK"),
@@ -67,7 +88,7 @@ class EventDetailPage extends StatelessWidget {
   }
 
   Future<void> _callOrganizer() async {
-    final Uri callUri = Uri(scheme: 'tel', path: organizerPhone);
+    final Uri callUri = Uri(scheme: 'tel', path: widget.organizerPhone);
     if (await canLaunchUrl(callUri)) {
       await launchUrl(callUri);
     } else {
@@ -77,7 +98,7 @@ class EventDetailPage extends StatelessWidget {
 
   Future<void> _openInMaps() async {
     final Uri mapUri = Uri.parse(
-        'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(eventLocation)}');
+        'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(widget.eventLocation)}');
     if (await canLaunchUrl(mapUri)) {
       await launchUrl(mapUri);
     }
@@ -88,7 +109,7 @@ class EventDetailPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color.fromRGBO(250, 249, 245, 1),
       appBar: AppBar(
-        title: Text(eventTitle),
+        title: Text(widget.eventTitle),
         centerTitle: true,
         backgroundColor: const Color.fromRGBO(244, 242, 230, 1),
       ),
@@ -98,11 +119,11 @@ class EventDetailPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (imageUrl != null)
+              if (widget.imageUrl != null)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: Image.network(
-                    imageUrl!,
+                    widget.imageUrl!,
                     height: 200,
                     width: double.infinity,
                     fit: BoxFit.cover,
@@ -110,7 +131,7 @@ class EventDetailPage extends StatelessWidget {
                 ),
               const SizedBox(height: 20),
               Text(
-                eventTitle,
+                widget.eventTitle,
                 style:
                     const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
@@ -119,7 +140,7 @@ class EventDetailPage extends StatelessWidget {
                 children: [
                   const Icon(Icons.calendar_today, size: 18),
                   const SizedBox(width: 6),
-                  Text(eventDate, style: const TextStyle(fontSize: 16)),
+                  Text(widget.eventDate, style: const TextStyle(fontSize: 16)),
                 ],
               ),
               const SizedBox(height: 8),
@@ -128,7 +149,7 @@ class EventDetailPage extends StatelessWidget {
                   const Icon(Icons.location_on, size: 18),
                   const SizedBox(width: 6),
                   Expanded(
-                      child: Text(eventLocation,
+                      child: Text(widget.eventLocation,
                           style: const TextStyle(fontSize: 16))),
                   IconButton(
                     icon: const Icon(Icons.map_outlined),
@@ -137,11 +158,11 @@ class EventDetailPage extends StatelessWidget {
                   ),
                 ],
               ),
-              if (skills != null && skills!.isNotEmpty) ...[
+              if (widget.skills != null && widget.skills!.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
-                  children: skills!
+                  children: widget.skills!
                       .map((skill) => Chip(
                             label: Text(skill),
                             backgroundColor: Colors.teal.shade100,
@@ -156,7 +177,7 @@ class EventDetailPage extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                eventDescription,
+                widget.eventDescription,
                 style: const TextStyle(fontSize: 16, height: 1.5),
               ),
               const SizedBox(height: 30),
@@ -164,7 +185,7 @@ class EventDetailPage extends StatelessWidget {
                 children: [
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () => _rsvp(context, eventId),
+                      onPressed: () => _rsvp(context, widget.eventId),
                       icon: const Icon(Icons.check_circle_outline),
                       label: const Text('RSVP'),
                       style: ElevatedButton.styleFrom(
