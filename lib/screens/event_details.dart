@@ -88,11 +88,11 @@ class EventDetailPageState extends State<EventDetailPage> {
   }
 
   String getFormattedDate() {
-    if (eventDate is DateTime) {
-      final DateTime date = eventDate;
+    if (widget.eventDate is DateTime) {
+      final DateTime date = widget.eventDate;
       return "${date.day}/${date.month}/${date.year} • ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}";
-    } else if (eventDate is String) {
-      return eventDate;
+    } else if (widget.eventDate is String) {
+      return widget.eventDate;
     } else {
       return "Date not available";
     }
